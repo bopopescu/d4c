@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+HOSTNAME="d4c_controller"; export HOSTNAME
+exec 0</dev/null
+exec>>/tmp/appd.log 2>&1 # symlink to /root/d4c/appd.log
+cd /root/d4c; setsid /root/d4c/appd.sh &

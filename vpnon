@@ -1,0 +1,33 @@
+#!/usr/bin/sh
+#vpn will be closed after 1000 s of inactivity, use $TOUT=0 not to be closed
+
+exec 0</dev/null
+exec>>/tmp/appd.log 2>&1
+
+if [ -x /root/d4c/appcfg.sh ]; then
+    . /root/d4c/appcfg.sh   # setting common variables
+else
+    echo missing appcfg.sh!
+    sleep 2
+fi
+
+if [ "$TOUT" = "" ];then
+    TOUT=1000
+fi
+
+
+if [ `/usr/local/bin/ps1 openvpn | wc -l` -gt 0 ]; then
+    echo "${0}: vpn already started..." 
+    exit 0
+fi
+
+if openvpn --cd /etc/openvpn --daemon --config itvilla.conf --inactive $TOUT  # replace itvilla.conf with <mac>.conf
+then
+  echo "${0}: vpn started" 
+  exit 0
+else
+  echo "${0}: starting vpn failed... TOUT $TOUT"
+  exit 1
+fi
+
+

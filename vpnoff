@@ -1,0 +1,10 @@
+#!/usr/bin/sh
+
+if killall -TERM openvpn
+then
+  echo vpn stopped
+  exit 0
+else
+  echo stopping vpn failed...
+  exit 1
+fi
