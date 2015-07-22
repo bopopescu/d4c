@@ -3,7 +3,7 @@
 # 7 7 * * * /root/d4c/chk_time.sh
 
 exec 0</dev/null
-exec>>/tmp/appd.log 2>&1
+exec>>/root/d4c/appd.log 2>&1
 
 TIMEOK=0
 

@@ -1,0 +1,21 @@
+#!/usr/bin/sh
+
+exec 0</dev/null
+exec 1>/tmp/appd.log
+exec 2>/tmp/appd.log # common log
+
+if killall -TERM appd.sh
+then
+    (echo -n "!!! $0 killed appd.sh "; date) #>> /root/d4c/appd.log
+else
+    (echo -n "!!! $0 FAILED to kill appd.sh "; date) #>> /root/d4c/appd.log
+fi
+    
+if killall -TERM python
+then
+    (echo -n "!!! $0 killed python "; date) #>> /root/d4c/appd.log
+else
+    (echo -n "!!! $0 FAILED to kill python "; date) #>> /root/d4c/appd.log
+fi
+
+# use it with olinuxino, to make sure 5V reset will be introduced if 0xFEED fails

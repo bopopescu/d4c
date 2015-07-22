@@ -2,7 +2,7 @@
 #droid4control linux controller startup, started by /etc/rc.local
 # vt /etc/rc.local  logi suunamise kohta /root/d4c/appd.log
 exec 0</dev/null
-exec>>/tmp/appd.log 2>&1
+exec>>/root/d4c/appd.log 2>&1
 
 
 APPCFG=/root/d4c/appcfg.sh
@@ -32,16 +32,16 @@ if [ -x $APPCFG ];then
     do
         export $variable
     done
-    (echo; echo $0 start; env) # >> $LOG
+    (echo; echo $0 start; env) 
 else
     echo MISSING $APPCFG...
     exit 1
 fi
 
-(echo; echo -n "$0 start "; date) #>> $LOG
+(echo; echo -n "$0 start "; date) 
 
 if [ ! -x $VPNON ]; then
-    echo $0 reports MISSING $VPNON #>> $LOG
+    echo $0 reports MISSING $VPNON 
     echo MISSING $VPNON...
     sleep 5
     exit 1
@@ -50,13 +50,13 @@ fi
 
 if [ -x $CHKCONN ]; then
     num=0
-    echo $0 waiting for connectivity... #>> $LOG
+    echo $0 waiting for connectivity... 
     while [ $num -lt 8 ]; do
         num=`expr $num + 1`
-        echo conn try $num # >> $LOG
+        echo conn try $num 
         if $CHKCONN
         then
-            echo "${0}: connectivity established" #>> $LOG
+            echo "${0}: connectivity established" 
             break # get out of loop
         fi
         sleep 5
@@ -64,27 +64,27 @@ if [ -x $CHKCONN ]; then
 
     if ! $CHKCONN # this starts vpn if conn ok (first try must be ok)
     then
-        echo "${0}: continuing without connectivity..." #>> $LOG
+        echo "${0}: continuing without connectivity..." 
     else # conn ok
       if $CHKTIME; then
-        ./wr_time.sh  # writes hw clock if exists. use also once a day via crontab
+        echo time ok  
       fi
     fi
 else
-   echo $0 reports MISSING $CHKCONN #>> $LOG
-   #echo $0 reports MISSING $CHKCONN
+   echo $0 reports MISSING $CHKCONN 
    sleep 5
 fi
 
 ########### endless loop  to keep app, rescue app, vpn running #################################
+echo $0 starting loop...
 
 while true
 do
-  (echo; echo -n "${APP} restart at "; date) # >> $LOG
-  if ! python $APP # >> $LOG 2>&1  # only errors to log file. avoiding +x bit possible error
+  (echo; echo -n "${APP} restart at "; date) 
+  if ! python $APP 
   then
-    (echo; echo -n "${RESCUE} start!!! "; date) #>> $LOG
-    python $RESCUE # >> $LOG 2>&1
+    (echo; echo -n "${RESCUE} start!!! "; date) 
+    python $RESCUE 
   fi
   # vpn will be started if both py apps fail
   $VPNON   # start vpn in case of application failure. does not restart, if already running

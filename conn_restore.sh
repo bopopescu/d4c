@@ -3,7 +3,7 @@
 #FIXME / pane lock /tmp, ps nr
 
 exec 0</dev/null
-exec>>/tmp/appd.log 2>&1 # nii stdout kui stderr, symlink /root/d4c/appd.log
+exec>>/root/d4c/appd.log 2>&1 # nii stdout kui stderr, symlink /tmp/appd.log
 
 conn() {
 echo $0 trying to restore connectivity...
