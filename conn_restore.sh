@@ -5,15 +5,15 @@
 exec 0</dev/null
 exec>>/root/d4c/appd.log 2>&1 # nii stdout kui stderr, symlink /tmp/appd.log
 
-fullstop() # stop py application and reset 5V power
+fullstop() { # stop py application and reset 5V power
     msg="appd.sh: stopping python and cold rebooting via 5V reset NOW!"
     echo $msg
     sync
-    sleep 1
+    sleep 5
     killall -TERM python # stop app to avoid modbus collision
     sleep 1
     killall -KILL python
-    sleep 1
+    sleep 5
     python mb.py $IOMBA 277 0009 # toitekatkestuse imp pikkus
     python mb.py $IOMBA 999 feed # toide maha
     reboot # igaks juhuks kui eelmisega mingi jama
@@ -22,12 +22,22 @@ fullstop() # stop py application and reset 5V power
 conn() {
     echo $0 trying to restore connectivity...
     # WARNING - lsusb may hang with usb chip problems!
-    LSUSB=""
-    LSUSB=`lsusb` &
+    /usr/bin/lsusb & # kaivitame
     sleep 10
-    if [ "$LSUSB" = "" ]; then # no response in 10 s, lsusb must be hanging
+    if [ `/usr/local/bin/ps1 lsusb | wc -l` -gt 0 ]; then # hangs!
+        echo lsusb hanging... debug output will follow...
         killall -KILL lsusb
-        fullstop
+        dmesg # logisse
+        ps -eo pid,tid,class,rtprio,ni,pri,psr,pcpu,stat,wchan:14,comm
+        strace lsusb & # this will hang as well
+        echo; echo
+        sleep 15
+        killall -KILL lsusb
+        echo fullstop # fullstop # go no further
+    else
+        LSUSB=`/usr/bin/lsusb`
+        echo LSUSB ok
+        echo "$LSUSB" # debug
     fi
 
     if [ `echo "$LSUSB" | grep WLAN | wc -l` -gt 0 ]; then # adapter olemas
@@ -54,7 +64,7 @@ conn() {
       ip addr add 10.0.0.111/24 broadcast 10.0.0.255 dev eth0 # staatiline igaks juhuks arvuti kylgepistmiseks
 
     else
-        echo $0 could not find device to connect... # >> $LOG
+        echo "$0 could not find any device (from wlan0, eth1, eth0) to connect..." # >> $LOG
     fi
     }
 

@@ -2,7 +2,7 @@
 #vpn will be closed after 1000 s of inactivity, use $TOUT=0 not to be closed
 
 exec 0</dev/null
-exec>>/tmp/appd.log 2>&1
+exec>>/root/d4c/appd.log 2>&1
 
 if [ -x /root/d4c/appcfg.sh ]; then
     . /root/d4c/appcfg.sh   # setting common variables

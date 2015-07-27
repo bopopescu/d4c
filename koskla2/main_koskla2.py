@@ -64,13 +64,18 @@ def comm_doall():
 
     r.regular_svc() # UPW,UTW, ipV, baV, cpV. mfV are default services.
     got = udp.comm() # loeb ja saadab udp, siin 0.1 s viide sees. tagastab {} saadud key:value vaartustega
+    got_parse(got) # see next def
+    # once again to keep up server comm despite possible extra communication
+    got = udp.udpread() # loeb ainult!
+    got_parse(got) # see next def
+    
+
+def got_parse(got):
+    ''' check the ack or cmd from server '''
     if got != {} and got != None: # got something from monitoring server
         ac.parse_udp(got) # chk if setup or counters need to be changed
         d.parse_udp(got) # chk if setup ot toggle for di
-        todo=p.parse_udp(got) # any commands or setup variables from server?
-
-
-
+        todo = p.parse_udp(got) # any commands or setup variables from server?
 
         # a few command to make sure they are executed even in case of udp_commands failure
         if todo == 'REBOOT':
@@ -87,7 +92,7 @@ def comm_doall():
         #print('main: todo',todo) # debug
         p.todo_proc(todo) # execute other possible commands
 
-
+    
 def app_doall():  
     ''' Application rules and logic for energy metering and consumption limiting, via services if possible  '''
     global ts, ts_app, el_energylast, pump_old, flowperiod
@@ -123,82 +128,85 @@ def app_doall():
                 ac.set_airaw('PFW', i+1, 0) # asendame nulliga
                 
             flowperiod[i] = pp[i].output(pump[i], di_state[i]) # pumba too avastada di4..di6 abil.
-            if flowperiod[i] != None and flowperiod[i] > 0:
-                flowrate = pump[i] * 1.0 * metercoeff[i] / flowperiod[i] # l/s
-                
-                #log.info('app_doall i '+str(i)+', flowrate pp '+str(flowrate)+', flowrate2 fr '+str(flowrate2)) ### 
-                if flowrate > 0:
-                    #ac.set_aivalue('F'+str(5+i)+'V',1,str(int(1000 * flowrate))) # ka seisu ajal, ml/s
-                    
-                    ##he[i].set_flowrate(flowrate) # flow rate l/s actual update ###### esialgu fixed, vt allpool
-                    
-                else:
-                    log.warning('illegal flowrate result '+str(flowrate))
+            #if flowperiod[i] != None and flowperiod[i] > 0:
+            #    flowrate = pump[i] * 1.0 * metercoeff[i] / flowperiod[i] # l/s
+            #    
+            #    #log.info('app_doall i '+str(i)+', flowrate pp '+str(flowrate)+', flowrate2 fr '+str(flowrate2)) ### 
+            #    if flowrate > 0:
+            #        pass #ac.set_aivalue('F'+str(5+i)+'V',1,str(int(1000 * flowrate))) # ka seisu ajal, ml/s
+            #        
+            #        ##he[i].set_flowrate(flowrate) # flow rate l/s actual update ###### esialgu fixed, vt allpool
+            #        
+            #    else:
+            #        log.warning('illegal flowrate result '+str(flowrate))
 
-                if he[i]:
-                    if i == 0:
-                        he[i].set_flowrate(flowfixed[i]) ## ajutine  = 5 imp 5 min jooksul kui 10 imp/l, 100 l /min. lyhikesed tootsyklid..
-                        #Ton, Tret = s.get_value('T51W','aicochannels')[0:2]  # teine liige tekib vahel sama kui esimene!!!
-                        Ton = s.get_value('T51W','aicochannels')[0]
-                        Tret = s.get_value('T51W','aicochannels')[1]
-                        log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret))
-                        hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
-                        log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
-                        if hrout[0] == None or pump[i] == 0: # he.output is sometimes >0 during di_pump == 1???
-                            hrout[0] = 0
-                        if ac.set_airaw('H1PW', 1, int(hrout[0])) != 0: # instant heat pump POWER W into svc
-                            log.warning('PROBLEM with raw setting for HP1W!') 
+            if he[i]:
+                if i == 0:
+                    he[i].set_flowrate(flowfixed[i]) ## ajutine  = 5 imp 5 min jooksul kui 10 imp/l, 100 l /min. lyhikesed tootsyklid..
+                    #Ton, Tret = s.get_value('T51W','aicochannels')[0:2]  # teine liige tekib vahel sama kui esimene!!!
+                    Ton = s.get_value('T51W','aicochannels')[0]
+                    Tret = s.get_value('T51W','aicochannels')[1]
+                    log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
+                    hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
+                    log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
+                    hrpwr = hrout[0]
+                    if hrpwr == None or pump[i] == 0: # he.output is sometimes >0 during di_pump == 1???
+                        hrpwr = 0
+                    if ac.set_airaw('H1PW', 1, int(hrpwr)) != 0: # instant heat pump POWER W into svc
+                        log.warning('PROBLEM with raw setting for HP1W!') 
+                    
+                elif i == 1:
+                    he[i].set_flowrate(flowfixed[i]) ## ajutine 1.28 l/s = 400 imp 52 min jooksul kui 10 imp/l
+                    #Ton, Tret = s.get_value('T61W','aicochannels')[0:2]
+                    Ton = s.get_value('T61W','aicochannels')[0]
+                    Tret = s.get_value('T61W','aicochannels')[1]
+                    log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
+                    hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
+                    hrpwr = hrout[0]
+                    log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
+                    if hrpwr == None or pump[i] == 0:
+                        hrpwr = 0
+                    if ac.set_airaw('H2PW', 1, int(hrpwr)) != 0: # instant heat pump POWER W
+                        log.warning('PROBLEM with raw setting for HP2W!') 
+                elif i == 2:
+                    he[i].set_flowrate(flowfixed[i]) ## ajutine l/s = 620 imp 10 h jooksul, 10,2 l/min  10 imp/l
+                    #Ton, Tret = s.get_value('T62W','aicochannels')[1:3] # members 2,3
+                    Ton = s.get_value('T62W','aicochannels')[1]
+                    # Tret = s.get_value('T62W','aicochannels')[2] # annab Ton vaartuse vahel??? ka multi graafik siuke... kui 4096?
+                    Tret = s.get_value('T63V','aicochannels')[0] # see annab none asemel ilusti eelmise value
+                    log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
+                    hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # solar to SPV
+                    hrpwr = hrout[0]
+                    log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
+                    if hrpwr == None or pump[i] == 0:
+                        hrpwr  = 0
+                    if ac.set_airaw('SPV', 1, int(hrpwr)) != 0: # instant heat solar power
+                        log.warning('PROBLEM with raw setting for SPV!') 
+                else:
+                    log.warning('app_doall() invalid i '+srt(i))
+                
+                log.info('app_doall i '+str(i)+', Ton '+str(Ton/10)+', Tret '+str(Tret/10)+', hrout[0] '+str(hrout[0]))
+
+                if i < 2 and pump[i]: # state change. i 0, 1 jaoks cop # liiga harva! parigu viimast pidevalt.
+                    if pump[i] == 0: # heat pump just stopped, calc COP!
+                        log.info('heat pump '+str(i+1)+' stopped, NEW COP present at '+str(ts)) # pump3 solar
                         
-                    elif i == 1:
-                        he[i].set_flowrate(flowfixed[i]) ## ajutine 1.28 l/s = 400 imp 52 min jooksul kui 10 imp/l
-                        #Ton, Tret = s.get_value('T61W','aicochannels')[0:2]
-                        Ton = s.get_value('T61W','aicochannels')[0]
-                        Tret = s.get_value('T61W','aicochannels')[1]
-                        log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret))
-                        hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
-                        log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
-                        if hrout[0] == None or pump[i] == 0:
-                            hrout[0] = 0
-                        if ac.set_airaw('H2PW', 1, int(hrout[0])) > 0: # instant heat pump POWER W
-                            log.warning('PROBLEM with raw setting for HP2W!') 
-                    elif i == 2:
-                        he[i].set_flowrate(flowfixed[i]) ## ajutine l/s = 620 imp 10 h jooksul, 10,2 l/min  10 imp/l
-                        #Ton, Tret = s.get_value('T62W','aicochannels')[1:3] # members 2,3
-                        Ton = s.get_value('T62W','aicochannels')[1]
-                        # Tret = s.get_value('T62W','aicochannels')[2] # annab Ton vaartuse vahel??? ka multi graafik siuke... kui 4096?
-                        Tret = s.get_value('T63V','aicochannels')[0] # see annab none asemel ilusti eelmise value
-                        log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret))
-                        hrout = he[i].output(pump[i], Tret/10.0, Ton/10.0) # siin vahetuses Tdiff mark vahetusdes teiste pumpadega vorreldes
-                        log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
-                        if hrout[0] == None or pump[i] == 0:
-                            hrout[0] = 0
-                        if ac.set_airaw('SPV', 1, int(hrout[0])) > 0: # instant heat solar power
-                            log.warning('PROBLEM with raw setting for SPV!') 
+                    ## COP calculation ## take only energypos into account! lastenergy as tuple!
+                    lastenergy = he[i].get_energylast() / 3600.0 # Ws (J) into Wh
+                    el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # cumulative el energy Wh
+                    # detect the chANGE IN HEAT PUMP STATUS, store el_energy value
+                    el_delta = el_energy - el_energylast[i] # Wh
+                    el_energylast[i] = el_energy # keep in global variable
+
+                    if el_delta > 0 and lastenergy > el_delta / 2: # avoid division with zero and cop calc for no heat production
+                        ac.set_airaw('CP'+str(i+1)+'V', 1, int(100 * round(lastenergy / el_delta, 2))) # calculated for last cycle cop
+                        log.info('last heat pump '+str(i+1)+' COP '+str(round(lastenergy / el_delta, 2))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
                     else:
-                        log.warning('app_doall() invalid i '+srt(i))
-                    
-                    log.info('app_doall i '+str(i)+', Ton '+str(Ton/10)+', Tret '+str(Tret/10)+', hrout[0] '+str(hrout[0]))
-
-                    if i < 2 and pump[i]: # state change. i 0, 1 jaoks cop # liiga harva! parigu viimast pidevalt.
-                        if pump[i] == 0: # heat pump just stopped, calc COP!
-                            log.info('heat pump '+str(i+1)+' stopped, NEW COP present at '+str(ts)) # pump3 solar
-                            
-                        ## COP calculation ## take only energypos into account! lastenergy as tuple!
-                        lastenergy = he[i].get_energylast() / 3600.0 # Ws (J) into Wh
-                        el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # cumulative el energy Wh
-                        # detect the chANGE IN HEAT PUMP STATUS, store el_energy value
-                        el_delta = el_energy - el_energylast[i] # Wh
-                        el_energylast[i] = el_energy # keep in global variable
-
-                        if el_delta > 0 and lastenergy > el_delta / 2: # avoid division with zero and cop calc for no heat production
-                            ac.set_airaw('CP'+str(i+1)+'V', 1, int(100 * round(lastenergy / el_delta, 2))) # calculated for last cycle cop
-                            log.info('last heat pump '+str(i+1)+' COP '+str(round(lastenergy / el_delta, 2))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
-                        else:
-                            log.warning('cannot calculate cop for pump '+str(i+1)+', heat / el '+str(lastenergy)+' / '+str(el_delta))
-                            # something to restore to avoid cop loss after restart?
-                
-                else:
-                    log.warning('NO he['+str(i)+'] instance!')
+                        log.warning('cannot calculate cop for pump '+str(i+1)+', heat / el '+str(lastenergy)+' / '+str(el_delta))
+                        # something to restore to avoid cop loss after restart?
+            
+            else:
+                log.warning('NO he['+str(i)+'] instance!')
 
         except:
             log.warning('heatflow/power calculation failed')

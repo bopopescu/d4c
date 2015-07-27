@@ -1,8 +1,7 @@
 #!/usr/bin/sh
 
 exec 0</dev/null
-exec 1>/tmp/appd.log
-exec 2>/tmp/appd.log # common log
+exec>>/root/d4c/appd.log 2>&1
 
 if killall -TERM appd.sh
 then
