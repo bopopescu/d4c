@@ -5,21 +5,32 @@
 exec 0</dev/null
 exec>>/root/d4c/appd.log 2>&1 # nii stdout kui stderr, symlink /tmp/appd.log
 
+testrun() { # test anything given as parameters for success
+    $* > /dev/null
+    local status=$?
+    echo $status
+}
+
+
 fullstop() { # stop py application and reset 5V power
-    msg="appd.sh: stopping python and cold rebooting via 5V reset NOW!"
+    msg="appd.sh: stopping python and cold rebooting via 5V (mba ${1}) reset NOW!"
     echo $msg
     sync
     sleep 5
+    
+    echo NOT stopping test # uncomment for real use 
+    
     killall -TERM python # stop app to avoid modbus collision
     sleep 1
     killall -KILL python
     sleep 5
-    python mb.py $IOMBA 277 0009 # toitekatkestuse imp pikkus
-    python mb.py $IOMBA 999 feed # toide maha
+    python mb.py $1 277 0009 # toitekatkestuse imp pikkus
+    python mb.py $1 999 feed # toide maha
     reboot # igaks juhuks kui eelmisega mingi jama
     }
 
 conn() {
+    local LOG=/root/d4c/usb_debug.log
     echo $0 trying to restore connectivity...
     # WARNING - lsusb may hang with usb chip problems!
     /usr/bin/lsusb & # kaivitame
@@ -27,16 +38,17 @@ conn() {
     if [ `/usr/local/bin/ps1 lsusb | wc -l` -gt 0 ]; then # hangs!
         echo lsusb hanging... debug output will follow...
         killall -KILL lsusb
-        dmesg # logisse
-        ps -eo pid,tid,class,rtprio,ni,pri,psr,pcpu,stat,wchan:14,comm
-        strace lsusb & # this will hang as well
-        echo; echo
+        (echo;date) >> $LOG
+        dmesg >> $LOG# eraldi logisse
+        ps -eo pid,tid,class,rtprio,ni,pri,psr,pcpu,stat,wchan:14,comm >> $LOG
+        strace lsusb & >> $LOG # this will hang as well
         sleep 15
         killall -KILL lsusb
-        echo fullstop # fullstop # go no further
+        (echo; echo) >> $LOG
+        fullstop $IOMBA  # go no further
     else
         LSUSB=`/usr/bin/lsusb`
-        echo LSUSB ok
+        #echo LSUSB ok
         echo "$LSUSB" # debug
     fi
 
@@ -97,21 +109,20 @@ fi
 
 upp=`cat /proc/uptime | cut -d"." -f1`
 
-if ! (ping -c1 $PING_IP1 > /dev/null; ping -c1 $PING_IP2 > /dev/null); then
-    conn # first try
+if [ `testrun ping -c1 $PING_IP1` -gt 0 -a `testrun ping -c1 $PING_IP2` -gt 0 ]; then # kumbki ei vasta
+    conn # first try to restore
     sleep 1
-    if ! (ping -c1 $PING_IP1 > /dev/null; ping -c1 $PING_IP2 > /dev/null); then
+    if [ `testrun ping -c1 $PING_IP1` -gt 0 -a `testrun ping -c1 $PING_IP2` -gt 0 ]; then
         conn # one retry
         sleep 1
-        if ! (ping -c1 $PING_IP1 > /dev/null; ping -c1 $PING_IP2 > /dev/null); then
+        if [ `testrun ping -c1 $PING_IP1` -gt 0 -a `testrun ping -c1 $PING_IP2` -gt 0 ]; then
             fcount=`cat $failcount | head -1`
             if [ $upp -gt $TOUT -a $fcount -gt $MAXCONNFAIL ];then
-                fullstop
+                fullstop $IOMBA # mbus address of 5v feeding io board as parameter
             else
                 fcount=`expr $fcount + 1`
                 msg="connectivity lost but uptime ${upp} or ping failcount $fcount too low to reboot... limits $TOUT and $MAXCONNFAIL"
                 echo $msg
-                #echo $msg >> $LOG
                 echo $fcount > $failcount
                 exit 1
             fi
@@ -121,11 +132,9 @@ else # conn ok on first try
     echo conn ok
     if [ `date +%s` -lt 1430983028 ]; then
         if [ ! -x $CHKTIME ]; then
-            #echo $0 reporting MISSING $CHKTIME >> $LOG
             echo $0 reporting MISSING $CHKTIME
         else
             if [ $upp -gt 100 ]; then
-                (echo -n "$0 checking time at "; date) # >> $LOG
                 $CHKTIME &
             fi
         fi
@@ -133,7 +142,7 @@ else # conn ok on first try
     echo 0 > $failcount
 
     if [ $upp -lt $TOUT ]; then
-        $VPNON #  >> $LOG  # start vpn together with every reboot, after the connectivity established
+        $VPNON # start vpn together with every reboot, after the connectivity established
     fi
 fi
 exit 0
