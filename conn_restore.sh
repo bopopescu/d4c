@@ -18,8 +18,6 @@ fullstop() { # stop py application and reset 5V power
     sync
     sleep 5
     
-    echo NOT stopping test # uncomment for real use 
-    
     killall -TERM python # stop app to avoid modbus collision
     sleep 1
     killall -KILL python
