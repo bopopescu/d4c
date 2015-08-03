@@ -192,33 +192,37 @@ def app_doall():
                 
                 #voimalikud kumul energia taastamised
                 cumheat = ac.get_aivalues('H'+str(i+1)+'CW') # [] of member values
-                if cumheat[0] != None and cumheat[0] > energy:
+                log.info('cumheat '+str(repr(cumheat)))
+                if cumheat[0] != None and len(cumheat) == 3 and cumheat[0] > energy:
                     he[i].set_energy(cumheat[0]); energy = cumheat[0] # kas liita vahepeale kogunenule?
-                    he[i].set_energypos(cumheat[3]); posenergy = cumheat[3] # kas liita vahepeale kogunenule?
-                    he[i].set_energyneg(cumheat[4]); negenergy = cumheat[4] # kas liita vahepeale kogunenule?
+                    he[i].set_energypos(cumheat[1]); posenergy = cumheat[1] # kas liita vahepeale kogunenule?
+                    he[i].set_energyneg(cumheat[2]); negenergy = cumheat[2] # kas liita vahepeale kogunenule?
                 
                 ac.set_aivalues('H'+str(i+1)+'CW', [int(round(energy, 0)), int(round(posenergy, 0)), int(round(negenergy, 0))]) # Wh 
-                log.info('cumulative heat energy Wh for i '+str(i)+': '+str(int(energy))+' pos '+str(int(posenergy))+' neg '+str(int(negenergy)))
+                log.info('cumulative heat energy Wh for i '+str(i)+': '+str(int(energy))+', pos '+str(int(posenergy))+', neg '+str(int(negenergy)))
 
-                if pump[i] != pump_old[i]: # state change. i 0, 1 jaoks cop # liiga harva! parigu viimast pidevalt.
-                    if pump[i] == 0: # heat pump just stopped, calc COP!
-                        log.info('heat pump '+str(i+1)+' stopped, NEW COP present at '+str(ts)) # pump3 solar
-                        
-                    ## COP & energy calculation 
-                    lastenergy = he[i].get_energylast() / 3600.0 # Ws (J) into Wh
-                    el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # cumulative el energy Wh
-                    # detect the chANGE IN HEAT PUMP STATUS, store el_energy value
-                    el_delta = el_energy - el_energylast[i] # kWh increment
-                    el_energylast[i] = el_energy # keep in global variable until next hp stop
-                    
-                    if i < 2: # cop calc here
-                        log.info('COP calc based on Wh el_delta '+str(el_delta)+' and lastenergy '+str(lastenergy))
-                        if el_delta > 0 and (lastenergy /1000 > el_delta / 2) and (lastenergy /1000 < 10 * el_delta): # avoid division with zero and weird results
-                            ac.set_airaw('CP'+str(i+1)+'V', 1, int(round((lastenergy / 100.0) / el_delta, 2))) # calculated for last cycle cop, x10
-                            log.info('last heat pump '+str(i+1)+' COP '+str(round((lastenergy / 1000) / el_delta, 2))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
-                        else:
-                            log.warning('skipped COP calc for pump '+str(i+1)+' due to heat / el '+str(lastenergy)+' / '+str(el_delta))
-                            # something to restore to avoid cop loss after restart?
+                if i < 2: # heat pump
+                    if pump[i] != pump_old[i]: # heat pump just stopped, calc COP!
+                        if pump[i] == 1:
+                            log.info('heat pump '+str(i+1)+' started')
+                            if el_energylast[i] == 0: # algseis seadmata
+                                el_energylast[i] = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # restore cumulative el energy Wh
+                                log.info('restored el_energylast['+str(i)+'] to become Wh '+str(el_energylast[i]))
+                                log.info('heat pump '+str(i+1)+' stopped, NEW COP present at '+str(ts)) # pump3 solar
+                        else: # stopped
+                            log.info('heat pump '+str(i+1)+' stopped, cop calc will follow')
+                            ## COP & energy calculation 
+                            lastenergy = he[i].get_energylast() / 3600.0 # Ws (J) to Wh
+                            el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # cumulative el energy Wh
+                            el_delta = el_energy - el_energylast[i] # kWh increment
+                            el_energylast[i] = el_energy # keep in global variable until next hp stop
+                            log.info('COP calc based on Wh el_delta '+str(el_delta)+' and lastenergy '+str(lastenergy))
+                            if el_delta > 0 and (lastenergy /1000 > el_delta / 2) and (lastenergy /1000 < 10 * el_delta): # avoid division with zero and more
+                                ac.set_airaw('CP'+str(i+1)+'V', 1, int(round((lastenergy / 100.0) / el_delta, 2))) # calculated for last cycle cop, x10
+                                log.info('last heat pump '+str(i+1)+' COP '+str(round((lastenergy / 1000) / el_delta, 2))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
+                            else:
+                                log.warning('skipped COP calc for pump '+str(i+1)+' due to heat / el '+str(lastenergy / 1000)+' / '+str(el_delta))
+                                # something to restore to avoid cop loss after restart?
             
             else:
                 log.warning('NO he['+str(i)+'] instance!')

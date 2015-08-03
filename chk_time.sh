@@ -15,7 +15,7 @@ fi
 /usr/bin/ntpd -gq &  # will hang with no connection
 sleep 10
 
-if [ `ps1 ntpd | wc -l` -eq 0 ]; then # ntpd finished, time should be correct
+if [ `/usr/local/bin/ps1 ntpd | wc -l` -eq 0 ]; then # ntpd finished, time should be correct
     TIMEOK=1
     #echo ntpd success...
     if [ `date +%s` -gt 1430983028 ]; then # double checking
