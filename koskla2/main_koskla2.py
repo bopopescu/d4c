@@ -247,7 +247,7 @@ def app_doall():
                             el_energylast[i] = el_energy # keep in global variable until next hp stop
                             log.info('COP calc based on hWh el_delta '+str(el_delta)+' and lastenergy '+str(lastenergy))
                             if el_delta > 0 and (lastenergy > el_delta / 5) and (lastenergy < 10 * el_delta): # avoid division with zero and more
-                                ac.set_airaw('CP'+str(i+1)+'V', 1, int(round(lastenergy / el_delta, 0))) # calculated for last cycle cop, x10
+                                ac.set_airaw('CP'+str(i+1)+'V', 1, int(round(10 * lastenergy / el_delta, 0))) # calculated for last cycle cop, x10
                                 log.info('last heat pump '+str(i+1)+' COP '+str(round(lastenergy / el_delta, 0))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
                             else:
                                 log.warning('skipped COP calc for pump '+str(i+1)+' due to heat/el '+str(lastenergy)+' / '+str(el_delta))
