@@ -136,8 +136,9 @@ def app_doall():
         return 5
 
     # valistemperatuur avg 2 anduri alusel
-    if ac.get_aivalue('T0W', 2)[0] != None and ac.get_aivalue('T0W', 3)[0] != None:
-        avgtemp = (ac.get_aivalue('T0W', 2)[0] + ac.get_aivalue('T0W', 3)[0]) / 2
+    temps = ac.get_values('T0W') # membes 2 and 3 are sensor values
+    if temps[1] != None and temps[2] != None and abs(temps[1] - temps[2]) < 50:
+        avgtemp = (temps[1] + temps[2]) / 2
         ac.set_airaw('T0W', 1, int(round(avgtemp,0))) # ddegC
 
     
@@ -210,15 +211,15 @@ def app_doall():
                         energy += cumheat[0] #  liita vahepeale kogunenu, hWh!
                         he[i].set_energy(energy)
                         
-                    if cumheat[1] != None and cumheat[1] > posenergy:
+                    if cumheat[1] != None and cumheat[1] > (posenergy + 1):
                         posenergy += cumheat[1] 
                         he[i].set_energypos(posenergy)
                         
-                    if cumheat[2] != None and cumheat[2] != negenergy:
+                    if cumheat[2] != None and abs(cumheat[2]) > (abs(negenergy) + 1):
                         negenergy += cumheat[2] # kas liita vahepeale kogunenule?
                         he[i].set_energyneg(negenergy)
                     else:
-                        if energy == posenergy:
+                        if energy == posenergy and negenergy != 0:
                             cumheat[2] = 0
                             negenergy = 0
                             he[i].set_energyneg(negenergy)
@@ -241,13 +242,13 @@ def app_doall():
                             log.info('heat pump '+str(i+1)+' stopped, new COP calc will follow')
                             ## COP & energy calculation 
                             lastenergy = he[i].get_energylast() # hWh
-                            el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] / 10.0 # cumulative el energy hWh
+                            el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # cumulative el energy hWh
                             el_delta = el_energy - el_energylast[i] # hWh 
                             el_energylast[i] = el_energy # keep in global variable until next hp stop
-                            log.info('COP calc based on Wh el_delta '+str(el_delta)+' and lastenergy '+str(lastenergy))
+                            log.info('COP calc based on hWh el_delta '+str(el_delta)+' and lastenergy '+str(lastenergy))
                             if el_delta > 0 and (lastenergy > el_delta / 5) and (lastenergy < 10 * el_delta): # avoid division with zero and more
-                                ac.set_airaw('CP'+str(i+1)+'V', 1, int(round(10 * lastenergy / el_delta, 0))) # calculated for last cycle cop, x10
-                                log.info('last heat pump '+str(i+1)+' COP '+str(round(10 * lastenergy / el_delta, 0))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
+                                ac.set_airaw('CP'+str(i+1)+'V', 1, int(round(lastenergy / el_delta, 0))) # calculated for last cycle cop, x10
+                                log.info('last heat pump '+str(i+1)+' COP '+str(round(lastenergy / el_delta, 0))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
                             else:
                                 log.warning('skipped COP calc for pump '+str(i+1)+' due to heat/el '+str(lastenergy)+' / '+str(el_delta))
                                 # something to restore to avoid cop loss after restart?
