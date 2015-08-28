@@ -136,8 +136,8 @@ def app_doall():
         return 5
 
     # valistemperatuur avg 2 anduri alusel
-    temps = ac.get_values('T0W') # membes 2 and 3 are sensor values
-    if temps[1] != None and temps[2] != None and abs(temps[1] - temps[2]) < 50:
+    temps = ac.get_aivalues('T0W') # members 2 and 3 are sensor values
+    if temps[1] != None and temps[2] != None and (abs(temps[1] - temps[2]) < 50):
         avgtemp = (temps[1] + temps[2]) / 2
         ac.set_airaw('T0W', 1, int(round(avgtemp,0))) # ddegC
 
