@@ -15,8 +15,10 @@ def comm_doall():
     ''' Handle the communication with io channels via modbus and the monitoring server  '''
 
     ############### conn up or down issues ################
-    if udp.sk.get_state()[3] == 1: # restore now the variables from the server
-
+    global udpup
+    #if udp.sk.get_state()[3] == 1: # restore now the variables from the server - kuna 2 paringut, siis jaab tous vahele
+    if udp.sk.get_state()[0] == 1 and udpup == 0: # restore now the variables from the server
+        udpup = 1
         try:
             hw = hex(mb[0].read(1,257,1)[0]) # assuming it5888, mba 1!
         except:
@@ -25,19 +27,24 @@ def comm_doall():
         #send via buffer only!
         # use udp.send(sta_reg,status,val_reg,value) # only status is int, the rest are str
 
-        #sendstring='AVV:HW '+hw+', APP '+APVER+'\nAVS:'
+        sendstring='AVV:HW '+hw+', APP '+APVER+'\nAVS:'
         if 'rescue' in os.path.basename(__file__):
-            udp.send(['AVS',2,'AVV','HW '+hw+', APP '+APVER]) # sendstring += '2' # critical service status
+            udp.send(['AVS',2,'AVV','HW '+hw+', APP '+APVER])  
+            sendstring += '2\n' # critical service status
         else:
-            udp.send(['AVS',0,'AVV','HW '+hw+', APP '+APVER]) # sendstring += '0'
-        udp.send(['TCS',1,'TCW','?']) # sendstring += '\nTCW:?\n'  # traffic counter variable to be restored
+            udp.send(['AVS',0,'AVV','HW '+hw+', APP '+APVER]) 
+            sendstring += '0\n'
+        udp.send(['TCS',1,'TCW','?']) # restore via buffer
+        #sendstring += '\nTCW:?\n'  # traffic counter variable to be restored
         for i in range(3):
-            udp.send(['H'+str(i+1)+'CS',1,'H'+str(i+1)+'CW','?']) # sendstring += '\nTCW:?\n'  # cumulative energies to be restored
+            udp.send(['H'+str(i+1)+'CS',1,'H'+str(i+1)+'CW','?']) # cumulative heat energy restoration via buffer
+            #sendstring += '\nTCW:?\n'  # cumulative traffic to be restored
         ac.ask_counters()
-        log.info('******* uniscada connectivity up, sent AVV and tried to restore counters ********')
-        #udp.udpsend(sendstring)
+        log.info('******* uniscada connectivity up, sent AVV and tried to restore counters and some variables ********')
+        udp.udpsend(sendstring) # AVV only, the rest go via buffer
 
     if udp.sk.get_state()[0] == 0: #
+        udpup = 0
         if udp.sk.get_state()[1] > 300 + udp.sk.get_state()[2] * 300: # total 10 min down, cold reboot needed
             # age and neverup taken into account from udp.sk statekeeper instance
             msg = '**** going to cut power NOW (at '+str(int(time.time()))+') via 0xFEED in attempt to restore connectivity ***'
@@ -97,58 +104,63 @@ def got_parse(got):
     
 def app_doall():  
     ''' Application rules and logic for energy metering and consumption limiting, via services if possible  '''
-    global ts, ts_app, el_energylast, pump_old, flowperiod
+    global ts, ts_app, el_energylast, pump_old #, flowperiod
     pump = [0, 0, 0]  # temporary list
     ##ts = time.time() # ajutine, testimiseks aega vaja
-    flowrate = 0
-    if ts < ts_app + 3: # not too often... 2 seconds min interval
-        #log.info('ts',ts,'ts_app',ts_app)
-        return 5
-
-    # temperatuurid 2 anduri alusel
-    if ac.get_aivalue('T0W', 2)[0] != None and ac.get_aivalue('T0W', 3)[0] != None:
-        avgtemp = (ac.get_aivalue('T0W', 2)[0] + ac.get_aivalue('T0W', 3)[0]) / 2
-        ac.set_aivalue('T0W', 1, int(round(avgtemp,0))) # ddegC
-
+    #flowrate = 0
     di_state = s.get_value('D1W','dichannels')[0:3] # didebug svc, first 3 inputs are water meters w pulse output
+    #change the pulse input order
+    temp = di_state[0]
+    di_state[0] = di_state[1]
+    di_state[1] = temp
+    
     pump = s.get_value('D1W','dichannels')[3:6] # didebug svc, next 3 inputs are pumps on the same tube with previous water meters
     metercoeff = [10, 10, 10] # litres per pulse
-    flowfixed = [1.67, 1.28, 0.172] # l/s
+    flowfixed = [1.67, 1.28, 0.172] # l/s - esimesed 2 peaks olema 1.67 ehk 100 l/min
     
-    msg = 'pump '+str(pump)+', di_state '+str(di_state)+', metercoeff '+str(metercoeff)+', flowperiod '+str(flowperiod)
-    log.info(msg) ##
-    print(msg) ##
     for i in range(3):
-        log.info('app_doall starting i '+str(i)) ###
+        #fr[i].update(pump[i], di_state[i]) # flow update! pulsse ei tohi vahele jatta
         try:
-            ac.set_airaw('F'+str(5+i)+'V', 1, int(1000 * flowfixed[i] * pump[i])) ## esialgu fixed alusel ###
+            volumecount = int(ac.get_aivalue('V'+str(i+5)+'V',1)[0]) # to check and fix flowrate calc in case of edge missing
+            if volumecount != None:
+                volumecount = volumecount / metercoeff[i]
+            if volumecount > 1: # avoid trouble with volume jump when restoring later
+                msg = str( fr[i].output(pump[i], di_state[i], volumecount) )
+            else:
+                msg = str( fr[i].output(pump[i], di_state[i]) )
+            log.info('fr update for i '+str(i)+', pump '+str(pump[i])+', di_state '+str(di_state[i])+', flowrate '+msg)
+        except:
+            log.warning('no valid data yet from svc V'+str(i+5)+'V,1' )
             
-            flowrate2 = fr[i].output(pump[i], di_state[i]) # fr alusel
-            log.info('app_doall i '+str(i)+', flowrate2 fr '+str(flowrate2)) ### 
+    if ts < ts_app + 5: # continue not too often... 
+        return 5
+
+    # valistemperatuur avg 2 anduri alusel
+    if ac.get_aivalue('T0W', 2)[0] != None and ac.get_aivalue('T0W', 3)[0] != None:
+        avgtemp = (ac.get_aivalue('T0W', 2)[0] + ac.get_aivalue('T0W', 3)[0]) / 2
+        ac.set_airaw('T0W', 1, int(round(avgtemp,0))) # ddegC
+
+    
+    for i in range(3):
+        #log.info('app_doall starting i '+str(i)) ###
+        try:
+            flowrate2 = fr[i].get_flow() # fr alusel
+            msg = 'pump '+str(pump)+', di_state '+str(di_state)+', flowrate '+str(flowrate2) # +', flowperiod '+str(flowperiod)
+            log.info(msg) ##
+            ac.set_airaw('F'+str(5+i)+'V', 1, int(1000 * flowrate2 * pump[i])) ## esialgu fixed alusel, korrutades pumba tooga. ###
+            
             if flowrate2 != None:
                 ac.set_airaw('PFW', i+1, int(1000 * flowrate2)) # fr alusel arvutatud, yks front
             else:
                 ac.set_airaw('PFW', i+1, 0) # asendame nulliga
                 
-            flowperiod[i] = pp[i].output(pump[i], di_state[i]) # pumba too avastada di4..di6 abil.
-            #if flowperiod[i] != None and flowperiod[i] > 0:
-            #    flowrate = pump[i] * 1.0 * metercoeff[i] / flowperiod[i] # l/s
-            #    
-            #    #log.info('app_doall i '+str(i)+', flowrate pp '+str(flowrate)+', flowrate2 fr '+str(flowrate2)) ### 
-            #    if flowrate > 0:
-            #        pass #ac.set_aivalue('F'+str(5+i)+'V',1,str(int(1000 * flowrate))) # ka seisu ajal, ml/s
-            #        
-            #        ##he[i].set_flowrate(flowrate) # flow rate l/s actual update ###### esialgu fixed, vt allpool
-            #        
-            #    else:
-            #        log.warning('illegal flowrate result '+str(flowrate))
-
             if he[i]:
-                he[i].set_flowrate(flowfixed[i]) ## ajutine  = 5 imp 5 min jooksul kui 10 imp/l, 100 l /min. lyhikesed tootsyklid..
-                if i == 0:
+                #he[i].set_flowrate(flowfixed[i]) ## ajutine  = 5 imp 5 min jooksul kui 10 imp/l, 100 l /min. lyhikesed tootsyklid..
+                he[i].set_flowrate(flowrate2) # tegelik flowrate arvesse
+                if i == 0: # sp1
                     Ton = s.get_value('T51W','aicochannels')[0]
                     Tret = s.get_value('T51W','aicochannels')[1]
-                    log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
+                    log.debug('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                     hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
                     log.info('i '+str(i)+', Tdiff '+str(int(Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
                     hrpwr = hrout[0]
@@ -157,7 +169,7 @@ def app_doall():
                     if ac.set_airaw('H1PW', 1, int(hrpwr)) != 0: # instant heat pump POWER W into svc
                         log.warning('PROBLEM with raw setting for HP1W!') 
                     
-                elif i == 1:
+                elif i == 1: # sp2
                     Ton = s.get_value('T61W','aicochannels')[0]
                     Tret = s.get_value('T61W','aicochannels')[1]
                     log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
@@ -168,10 +180,9 @@ def app_doall():
                         hrpwr = 0
                     if ac.set_airaw('H2PW', 1, int(hrpwr)) != 0: # instant heat pump POWER W
                         log.warning('PROBLEM with raw setting for HP2W!') 
-                elif i == 2:
-                    Ton = s.get_value('T62W','aicochannels')[1]
-                    # Tret = s.get_value('T62W','aicochannels')[2] # annab Ton vaartuse vahel??? ka multi graafik siuke... kui 4096?
-                    Tret = s.get_value('T63V','aicochannels')[0] # see annab none asemel ilusti eelmise value
+                elif i == 2: # solar
+                    Ton = s.get_value('T65W','aicochannels')[0] # solar dn ja up temps
+                    Tret = s.get_value('T65W','aicochannels')[1] # see annab none asemel ilusti eelmise value
                     log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                     hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # solar to SPV
                     hrpwr = hrout[0]
@@ -183,45 +194,62 @@ def app_doall():
                 else:
                     log.warning('app_doall() invalid i '+srt(i))
                 
-                log.info('app_doall i '+str(i)+', Ton '+str(Ton/10)+', Tret '+str(Tret/10)+', hrout[0] '+str(hrout[0]))
+                log.info('app_doall i '+str(i)+', Ton '+str(Ton/10)+', Tret '+str(Tret/10)+', hrout '+str(hrout))
                 
-                #cumulative energies possible recovery from server
-                energy = hrout[1] / 3600.0 # Ws (J) into Wh
-                posenergy = hrout[3] / 3600.0 # Ws (J) into Wh
-                negenergy = hrout[4] / 3600.0 # Ws (J) into Wh
+                #cumulative energies with possible recovery from server
+                energy = hrout[1]
+                posenergy = hrout[3]
+                negenergy = hrout[4] # all hWh
                 
-                #voimalikud kumul energia taastamised
-                cumheat = ac.get_aivalues('H'+str(i+1)+'CW') # [] of member values
-                log.info('cumheat '+str(repr(cumheat)))
-                if cumheat[0] != None and len(cumheat) == 3 and cumheat[0] > energy:
-                    he[i].set_energy(cumheat[0]); energy = cumheat[0] # kas liita vahepeale kogunenule?
-                    he[i].set_energypos(cumheat[1]); posenergy = cumheat[1] # kas liita vahepeale kogunenule?
-                    he[i].set_energyneg(cumheat[2]); negenergy = cumheat[2] # kas liita vahepeale kogunenule?
-                
-                ac.set_aivalues('H'+str(i+1)+'CW', [int(round(energy, 0)), int(round(posenergy, 0)), int(round(negenergy, 0))]) # Wh 
-                log.info('cumulative heat energy Wh for i '+str(i)+': '+str(int(energy))+', pos '+str(int(posenergy))+', neg '+str(int(negenergy)))
-
+                #voimalikud kumul energia taastamised ???????
+                cumheat = ac.get_aivalues('H'+str(i+1)+'CW') # [] of member values. hWh
+                log.debug('cumheat in svc H'+str(i+1)+'CW '+str(repr(cumheat)))
+                if energy != None and posenergy != None and negenergy != None and len(cumheat) == 3:
+                    if cumheat[0] != None and cumheat[0] > (energy + 1): # value in svc bigger than in instance, avoid avg effect
+                        log.info('*** restoring cumulative energy to '+str(cumheat[0])+' plus '+str(energy)+' for he['+str(i)+'], svc H'+str(i+1)+'CW!')
+                        energy += cumheat[0] #  liita vahepeale kogunenu, hWh!
+                        he[i].set_energy(energy)
+                        
+                    if cumheat[1] != None and cumheat[1] > posenergy:
+                        posenergy += cumheat[1] 
+                        he[i].set_energypos(posenergy)
+                        
+                    if cumheat[2] != None and cumheat[2] != negenergy:
+                        negenergy += cumheat[2] # kas liita vahepeale kogunenule?
+                        he[i].set_energyneg(negenergy)
+                    else:
+                        if energy == posenergy:
+                            cumheat[2] = 0
+                            negenergy = 0
+                            he[i].set_energyneg(negenergy)
+                            log.info('negenergy zeroed due to energy = posenergy')
+                            
+                    ac.set_aivalues('H'+str(i+1)+'CW', [int(round(energy, 0)), int(round(posenergy, 0)), int(round(negenergy, 0))]) # hWh 
+                    log.info('new cumulative heat energy hWh in H'+str(i+1)+'CW set to: '+str(int(energy))+', pos '+str(int(posenergy))+', neg '+str(int(negenergy)))
+                else:
+                    log.warning('cumheat or energy not valid yet for he'+str(i)+' set_energy(), cumheat '+str(cumheat)+', energy '+str(energy))
+                    
                 if i < 2: # heat pump
                     if pump[i] != pump_old[i]: # heat pump just stopped, calc COP!
                         if pump[i] == 1:
                             log.info('heat pump '+str(i+1)+' started')
                             if el_energylast[i] == 0: # algseis seadmata
-                                el_energylast[i] = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # restore cumulative el energy Wh
-                                log.info('restored el_energylast['+str(i)+'] to become Wh '+str(el_energylast[i]))
-                                log.info('heat pump '+str(i+1)+' stopped, NEW COP present at '+str(ts)) # pump3 solar
+                                el_energylast[i] = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0]  # restore cumulative el energy hWh
+                                log.info('*** restored el_energylast['+str(i)+'] to hWh '+str(el_energylast[i]))
+                                
                         else: # stopped
-                            log.info('heat pump '+str(i+1)+' stopped, cop calc will follow')
+                            log.info('heat pump '+str(i+1)+' stopped, new COP calc will follow')
                             ## COP & energy calculation 
-                            lastenergy = he[i].get_energylast() / 3600.0 # Ws (J) to Wh
-                            el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] # cumulative el energy Wh
-                            el_delta = el_energy - el_energylast[i] # kWh increment
+                            lastenergy = he[i].get_energylast() # hWh
+                            el_energy = ac.get_aivalue('E'+str(i+1)+'CV', 1)[0] / 10.0 # cumulative el energy hWh
+                            el_delta = el_energy - el_energylast[i] # hWh 
                             el_energylast[i] = el_energy # keep in global variable until next hp stop
                             log.info('COP calc based on Wh el_delta '+str(el_delta)+' and lastenergy '+str(lastenergy))
-                            if el_delta > 0 and (lastenergy /1000 > el_delta / 2) and (lastenergy /1000 < 10 * el_delta): # avoid division with zero and more
-                                ac.set_airaw('CP'+str(i+1)+'V', 1, int(round((lastenergy / 100.0) / el_delta, 2))) # calculated for last cycle cop, x10
-                                log.info('last heat pump '+str(i+1)+' COP '+str(round((lastenergy / 1000) / el_delta, 2))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
+                            if el_delta > 0 and (lastenergy > el_delta / 5) and (lastenergy < 10 * el_delta): # avoid division with zero and more
+                                ac.set_airaw('CP'+str(i+1)+'V', 1, int(round(10 * lastenergy / el_delta, 0))) # calculated for last cycle cop, x10
+                                log.info('last heat pump '+str(i+1)+' COP '+str(round(10 * lastenergy / el_delta, 0))+' ('+str(lastenergy)+' / '+str(el_delta)+')')
                             else:
-                                log.warning('skipped COP calc for pump '+str(i+1)+' due to heat / el '+str(lastenergy / 1000)+' / '+str(el_delta))
+                                log.warning('skipped COP calc for pump '+str(i+1)+' due to heat/el '+str(lastenergy)+' / '+str(el_delta))
                                 # something to restore to avoid cop loss after restart?
             
             else:
@@ -302,11 +330,14 @@ from droidcontroller.pic_update import *
 
 from droidcontroller.heatflow import * # heat flow and energy
 he = []
-pp = []
+#pp = []
 fr = []
 for i in range(3):
-    he.append(HeatExchange(flowrate=0, cp1=4200, tp1=20, cp2=4200, tp2=50)) # sp1
-    pp.append(PulsePeriod())
+    if i < 2:
+        he.append(HeatExchange(flowrate=0, cp1=4200, tp1=20, cp2=4200, tp2=50, unit='hWh')) # sp1, sp2 water
+    else:
+        he.append(HeatExchange(flowrate=0, cp1=3525, tp1=40, cp2=3604, tp2=80, unit='hWh')) # solar, 30% ethylene glykol, per litre! J/(l K)
+        # see http://www.engineeringtoolbox.com/ethylene-glycol-d_146.html
     fr.append(FlowRate()) # define pulse coeff
 ####
 #from droidcontroller.nagios import NagiosMessage # paralleelteated otse starmani
@@ -316,7 +347,7 @@ for i in range(3):
 
 ts = time.time() # needed for manual function testing
 ts_app = ts
-flowperiod = [None, None, None]
+#flowperiod = [None, None, None]
 el_energylast = [0, 0, 0] # None ei ole alguseks hea, esimene ja ka koik jargmised lahutamised failivad
 pump_old = [0, 0, 0]
 
