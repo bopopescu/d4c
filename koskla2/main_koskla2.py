@@ -163,7 +163,7 @@ def app_doall():
                     Tret = s.get_value('T51W','aicochannels')[1]
                     log.debug('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                     hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
-                    log.info('i '+str(i)+', Tdiff '+str(int(Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
+                    log.info('i '+str(i)+', Tdiff '+str(int(Ton-Tret)/10)+', di_pump '+str(pump[i])+', he[0].output '+str(hrout))
                     hrpwr = hrout[0]
                     if hrpwr == None or pump[i] == 0: # he.output is sometimes >0 during di_pump == 1???
                         hrpwr = 0
@@ -176,7 +176,7 @@ def app_doall():
                     log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                     hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
                     hrpwr = hrout[0]
-                    log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
+                    log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he[1].output '+str(hrout))
                     if hrpwr == None or pump[i] == 0:
                         hrpwr = 0
                     if ac.set_airaw('H2PW', 1, int(hrpwr)) != 0: # instant heat pump POWER W
@@ -187,7 +187,7 @@ def app_doall():
                     log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                     hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # solar to SPV
                     hrpwr = hrout[0]
-                    log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he.output '+str(hrout))
+                    log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he[2].output '+str(hrout))
                     if hrpwr == None or pump[i] == 0:
                         hrpwr  = 0
                     if ac.set_airaw('SPV', 1, int(hrpwr)) != 0: # instant heat solar power
@@ -206,16 +206,16 @@ def app_doall():
                 cumheat = ac.get_aivalues('H'+str(i+1)+'CW') # [] of member values. hWh
                 log.debug('cumheat in svc H'+str(i+1)+'CW '+str(repr(cumheat)))
                 if energy != None and posenergy != None and negenergy != None and len(cumheat) == 3:
-                    if cumheat[0] != None and cumheat[0] > (energy + 1): # value in svc bigger than in instance, avoid avg effect
+                    if cumheat[0] != None and cumheat[0] > (energy + 10): # value in svc bigger than in instance, avoid avg effect
                         log.info('*** restoring cumulative energy to '+str(cumheat[0])+' plus '+str(energy)+' for he['+str(i)+'], svc H'+str(i+1)+'CW!')
                         energy += cumheat[0] #  liita vahepeale kogunenu, hWh!
                         he[i].set_energy(energy)
                         
-                    if cumheat[1] != None and cumheat[1] > (posenergy + 1):
+                    if cumheat[1] != None and cumheat[1] > (posenergy + 10):
                         posenergy += cumheat[1] 
                         he[i].set_energypos(posenergy)
                         
-                    if cumheat[2] != None and abs(cumheat[2]) > (abs(negenergy) + 1):
+                    if cumheat[2] != None and abs(cumheat[2]) > (abs(negenergy) + 10):
                         negenergy += cumheat[2] # kas liita vahepeale kogunenule?
                         he[i].set_energyneg(negenergy)
                     else:
