@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-APVER='koskla2 28.05.2015' # for olinuxino
+APVER='koskla2 28.08.2015' # for olinuxino
 # get_conf kasutusse ka mac jaoks
 # get_ip lisatud ip jalgimiseks, sh tun olemasolu puhul
 # molemad uniscada.py sisse, mis neid vajavad (votmesonade mac ja ip kontroll!)
@@ -128,7 +128,7 @@ def app_doall():
                 msg = str( fr[i].output(pump[i], di_state[i], volumecount) )
             else:
                 msg = str( fr[i].output(pump[i], di_state[i]) )
-            log.info('fr update for i '+str(i)+', pump '+str(pump[i])+', di_state '+str(di_state[i])+', flowrate '+msg)
+            log.info('fr update for i '+str(i)+', pump '+str(pump[i])+', di_state '+str(di_state[i])+', flowrate '+msg+', volumecount '+str(volumecount))
         except:
             log.warning('no valid data yet from svc V'+str(i+5)+'V,1' )
             
@@ -148,10 +148,10 @@ def app_doall():
             flowrate2 = fr[i].get_flow() # fr alusel
             msg = 'pump '+str(pump)+', di_state '+str(di_state)+', flowrate '+str(flowrate2) # +', flowperiod '+str(flowperiod)
             log.info(msg) ##
-            ac.set_airaw('F'+str(5+i)+'V', 1, int(1000 * flowrate2 * pump[i])) ## esialgu fixed alusel, korrutades pumba tooga. ###
+            ac.set_airaw('F'+str(5+i)+'V', 1, int(1000 * flowrate2 * pump[i])) # ml/s
             
             if flowrate2 != None:
-                ac.set_airaw('PFW', i+1, int(1000 * flowrate2)) # fr alusel arvutatud, yks front
+                ac.set_airaw('PFW', i+1, int(1000 * flowrate2)) # ml/s
             else:
                 ac.set_airaw('PFW', i+1, 0) # asendame nulliga
                 

@@ -1,5 +1,5 @@
 #this is the configuration file  to be read by appd.sh started by local.rc
-ID=000101300005
+ID=000101100000
 APP=/root/d4c/main_monitor.py # controller application
 IOMBA=1 
 # previous is modbus address of io card it5888 inside the controller
