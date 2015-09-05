@@ -39,7 +39,7 @@ conn() {
         (echo;date) >> $LOG
         dmesg >> $LOG# eraldi logisse
         ps -eo pid,tid,class,rtprio,ni,pri,psr,pcpu,stat,wchan:14,comm >> $LOG
-        strace lsusb & >> $LOG # this will hang as well
+        strace -tt lsusb & >> $LOG # this will hang as well
         sleep 15
         killall -KILL lsusb
         (echo; echo) >> $LOG
@@ -55,8 +55,9 @@ conn() {
             echo $0 starting RTL wlan on device wlan0...  # >> $LOG
             if ip link set wlan0 up
             then
-              wpa_supplicant -Dwext -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf &
-              sleep 5 # kui ei pane taustale siis kylmub siia wlan puhul!
+              #wpa_supplicant -Dwext -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf &
+              wpa_supplicant -B -c/etc/wpa_supplicant/wpa_supplicant.conf -iwlan0
+	      sleep 5 # kui ei pane taustale siis kylmub siia wlan puhul!
             else
               echo $0 failed to set wlan0 up
             fi

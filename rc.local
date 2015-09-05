@@ -3,3 +3,5 @@ HOSTNAME="d4c_controller"; export HOSTNAME
 exec 0</dev/null
 exec>>/root/d4c/appd.log 2>&1 # symlink to /tmp/appd.log ?
 cd /root/d4c; setsid /root/d4c/appd.sh & # starts infinite loop
+# to enable rc.local, see http://superuser.com/questions/278396/systemd-does-not-run-etc-rc-local
+
