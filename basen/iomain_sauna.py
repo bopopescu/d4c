@@ -19,7 +19,7 @@ from droidcontroller.uniscada import * # UDPchannel, TCPchannel
 from droidcontroller.controller_app import * 
 from droidcontroller.statekeeper import * 
 from droidcontroller.read_gps import * #
-gps = ReadGps(speed = 4800, parity = 'N') # USB
+gps = ReadGps(speed = 4800) # USB
 
 import logging
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
@@ -111,8 +111,8 @@ class CustomerApp(object):
         self.di = di
 
         coord = gps.get_coordinates()
-        ac.set_airaw('G1V',1,coord[0]) # lat
-        ac.set_airaw('G2V',1,coord[1]) # lng
+        ac.set_airaw('G1V',1,int(coord[0] * 1000000)) # lat
+        ac.set_airaw('G2V',1,int(coord[1] * 1000000)) # lng
         
         ##### app end ####    
     
