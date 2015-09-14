@@ -252,7 +252,7 @@ if __name__ == '__main__':  ####################################################
     while stop == 0: # endless loop
         ts=time.time() # global for functions
         comm_doall()  # communication with io and server
-        app_doall() # application rules and logic, via services if possible
+        #app_doall() # application rules and logic, via services if possible
         # #########################################
 
        #time.sleep(0.1)  # main loop takt 0.1, debug jaoks suurem / jookseb kinni kui viidet pole? subprocess?

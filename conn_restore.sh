@@ -56,7 +56,7 @@ conn() {
             if ip link set wlan0 up
             then
               #wpa_supplicant -Dwext -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf &
-              wpa_supplicant -B -c/etc/wpa_supplicant/wpa_supplicant.conf -iwlan0
+              wpa_supplicant -B -Dwext -c/etc/wpa_supplicant/wpa_supplicant.conf -iwlan0
 	      sleep 5 # kui ei pane taustale siis kylmub siia wlan puhul!
             else
               echo $0 failed to set wlan0 up
