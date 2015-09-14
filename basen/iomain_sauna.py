@@ -65,7 +65,7 @@ class CustomerApp(object):
                     if ledstate[0] != self.ledstates[i]:
                         log.info('light '+str(i + 1)+' new state '+str(ledstate[0]))
                         self.ledstates[i] = ledstate[0]
-                    d.set_dovalue('LTW', i+1, state) # actual output service, fixed in dchannels.py 13.9.2015
+                    d.set_dovalue('LTW', i+1, ledstate[0]) # actual output service, fixed in dchannels.py 13.9.2015
                     ##s.setbit_do(1, state, 1, 0) # bit, value, mba, regadd, mbi=0 # ei toimi!
                     #s.setby_dimember_do('LTW', i + 1, state)
                     d.sync_do() # actual output writing
@@ -111,9 +111,11 @@ class CustomerApp(object):
         self.di = di
 
         coord = gps.get_coordinates()
-        ac.set_airaw('G1V',1,int(coord[0] * 1000000)) # lat
-        ac.set_airaw('G2V',1,int(coord[1] * 1000000)) # lng
-        
+        if coord != None and coord[0] != None and coord[1] != None:
+            ac.set_airaw('G1V',1,int(coord[0] * 1000000)) # lat
+            ac.set_airaw('G2V',1,int(coord[1] * 1000000)) # lng
+        else:
+            log.warning('no coordinates from GPS device, coord '+str(coord))
         ##### app end ####    
     
 
