@@ -1,4 +1,4 @@
--- rakvere pikk40 kelder
+-- basen sauna
 
 -- modbus do channels to be controlled by a local application (control.py by default).
 -- reporting to monitor happens via adichannels! this table only deals with channel control, without attention to service names or members. 
@@ -15,7 +15,15 @@ CREATE TABLE dochannels(mba,regadd,bit,bootvalue,value,ts,rule,desc,comment,mbi 
 -- it is possible to combine values from different modbus slaves and registers into one service. 
 -- possible status values are 0..3
 
-INSERT INTO "dochannels" VALUES('1','0','8','0','0','','','output DO1','vent',0); --  porand
+INSERT INTO "dochannels" VALUES('1','0','8','0','0','','','output DO1','LED',0); --  k2
+INSERT INTO "dochannels" VALUES('1','0','9','0','0','','','output DO2','LED',0); --  k3
+INSERT INTO "dochannels" VALUES('1','0','10','0','0','','','output DO3','LED',0); --  k4
+INSERT INTO "dochannels" VALUES('1','0','11','0','0','','','output DO4','LED',0); --  k5
+INSERT INTO "dochannels" VALUES('1','0','12','0','0','','','output DO5','batt',0); --  k6 dir
+INSERT INTO "dochannels" VALUES('1','0','13','0','0','','','output DO6','batt',0); --  k7 R
+INSERT INTO "dochannels" VALUES('1','0','14','0','1','','','output DO7','panel',0); -- 50mA
+
+CREATE UNIQUE INDEX do_regbit on 'dochannels'(mba,regadd,bit); -- to avoid do ill-behaving
 
 -- the rule number column is provided just in case some application needs them. should be uniquely indexed!
 -- NB but register addresses and bits can be on different lines, to be members of different services AND to be controlled by different rules!!!

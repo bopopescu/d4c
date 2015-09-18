@@ -11,15 +11,15 @@ CREATE TABLE aochannels(mba,regadd,bootvalue,value,ts,rule,desc,comment,mbi inte
 -- lisada registergroup (jarjestikusteks kirjutamisteks)? jarjestikusi korraga kirjutamisi on aga harva oodata...
 -- nii et grupeerida pole vaja! loendeid vist ka siit ei kirjuta.
 
-INSERT INTO "aochannels" VALUES('1','1000','','','','','panel sauna temp','',0); -- 
-INSERT INTO "aochannels" VALUES('1','1001','','','','','panel bath temp','',0); -- 
-INSERT INTO "aochannels" VALUES('1','1002','','','','','panel outdoor','',0); -- 
-INSERT INTO "aochannels" VALUES('1','1003','','','','','panel hot water','',0); -- 
-INSERT INTO "aochannels" VALUES('1','1004','','','','','panel battery','',0); -- 
-INSERT INTO "aochannels" VALUES('1','1005','','','','','panel feet','',0); -- 
-INSERT INTO "aochannels" VALUES('1','1006','','','','','panel lights','',0); -- 
+INSERT INTO "aochannels" VALUES('3','1000','','','','','panel sauna temp','',0); -- PNW in aico. mba3
+INSERT INTO "aochannels" VALUES('3','1001','','','','','panel bath temp','',0); -- 
+INSERT INTO "aochannels" VALUES('3','1003','','','','','panel outdoor','',0); -- s401 does not support more than 2 reg
+INSERT INTO "aochannels" VALUES('3','1004','','','','','panel hot water','',0); -- 
+INSERT INTO "aochannels" VALUES('3','1006','','','','','panel battery','',0); -- 
+INSERT INTO "aochannels" VALUES('3','1007','','','','','panel feet','',0); -- 
+INSERT INTO "aochannels" VALUES('3','1009','','','','','panel lights','',0); -- 
 
-CREATE UNIQUE INDEX do_mbareg on 'aochannels'(mbi,mba,regadd); -- you need to put a name to the channel even if you do not plan to report it
+CREATE UNIQUE INDEX do_mbareg on 'aochannels'(mbi,mba,regadd); 
 
 -- the rule number column is provided just in case some application needs them. should be uniquely indexed!
 -- NB but register addresses and bits can be on different lines, to be members of different services AND to be controlled by different rules!!!
