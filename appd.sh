@@ -76,7 +76,7 @@ else
 fi
 
 ########### endless loop  to keep app, rescue app, vpn running #################################
-echo $0 starting loop...
+echo $0 starting loop at `date`
 
 while true
 do

@@ -21,7 +21,8 @@ INSERT INTO "dochannels" VALUES('1','0','10','0','0','','','output DO3','LED',0)
 INSERT INTO "dochannels" VALUES('1','0','11','0','0','','','output DO4','LED',0); --  k5
 INSERT INTO "dochannels" VALUES('1','0','12','0','0','','','output DO5','batt',0); --  k6 dir
 INSERT INTO "dochannels" VALUES('1','0','13','0','0','','','output DO6','batt',0); --  k7 R
-INSERT INTO "dochannels" VALUES('1','0','14','0','1','','','output DO7','panel',0); -- 50mA
+-- INSERT INTO "dochannels" VALUES('1','0','14','0','1','','','output DO7','panel',0); -- 50mA KEEP VALUE 1 for panel power
+INSERT INTO "dochannels" VALUES('1','0','14','0','0','','','output DO7','panel',0); -- svc PPS 50mA KEEP VALUE 1 for panel power
 
 CREATE UNIQUE INDEX do_regbit on 'dochannels'(mba,regadd,bit); -- to avoid do ill-behaving
 

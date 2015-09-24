@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-APVER='basen sauna before ioloop' # for olinuxino
+APVER='basen sauna 24.09.2015' # for olinuxino
 # get_conf kasutusse ka mac jaoks
 # get_ip lisatud ip jalgimiseks, sh tun olemasolu puhul
 # molemad uniscada.py sisse, mis neid vajavad (votmesonade mac ja ip kontroll!)
@@ -115,12 +115,12 @@ def app_doall():
     
     di = d.get_divalues('DIW')
     do = d.get_divalues('DOW')
-    log.info('di: '+str(di)+', do: '+str(do)) ##
+    if di != self_di:
+        log.info('di changed: '+str(di)+', do: '+str(do)) ##
 
-    # switch on panelpower if any of led strips ios on
-    # switch off panelpower if all led strips are on
-    # switch panel temporarely on if car connected or disconnected
-
+    # switch on panelpower if any of led strips is on
+    # switch off panelpower if all led strips are off
+    
     try:
         if self_di != None and di != self_di: # only changes
             ledsum = 0
@@ -225,11 +225,12 @@ def app_doall():
             if panelpower != panel.get_power():
                 log.info('NEW panelpower '+str(panelpower))
                 panel.set_power(panelpower)
+                d.set_dovalue('PPS',1,self_panelpower)
+        
                 
         else:
             log.warning('LTW values strange: '+str(values))
             
-        d.set_dovalue('PPS',1,self_panelpower)
         d.sync_do() # actual output writing
         self_di = di
         #ac.sync_ao() # no need with panel instance in use
@@ -318,8 +319,8 @@ from droidcontroller.read_gps import * #
 gps = ReadGps(speed = 4800) # USB
 
 from droidcontroller.panel_seneca import *
-#panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={1000:-999,1001:-999, 1003:-999,1004:-999, 1006:-999,1007:-999,1009:-999}, power = 0)
-panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={400:-999,401:-999, 403:-999,404:-999, 406:-999,407:-999,409:-999}, power = 0)
+panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={1000:-999,1001:-999, 1003:-999,1004:-999, 1006:-999,1007:-999,1009:-999}, power = 0)
+#panel = PanelSeneca(mb, mba = 1, mbi = 0, linedict={400:-999,401:-999, 403:-999,404:-999, 406:-999,407:-999,409:-999}, power = 0) # test
 
 ####
 #from droidcontroller.nagios import NagiosMessage # paralleelteated otse starmani

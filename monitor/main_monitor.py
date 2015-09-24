@@ -90,12 +90,15 @@ def got_parse(got):
 
         # a few command to make sure they are executed even in case of udp_commands failure
         if todo == 'REBOOT':
-            stop = 1 # kui sys.exit p sees ei moju millegiparast
+            udp.udpsend('cmd:REBOOT\n')
             print('emergency stopping by main loop, stop=',stop)
             udp.dump_buffer()
+            stop = 1 # kui sys.exit p sees ei moju millegiparast
+            
 
         if todo == 'FULLREBOOT':
             print('emergency rebooting by main loop')
+            udp.udpsend('cmd:FULLREBOOT\n')
             udp.dump_buffer()
             p.subexec('reboot',0) # no []
         # end making sure
