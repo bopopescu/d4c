@@ -142,8 +142,8 @@ def app_doall():
                 aivalue = ac.get_aivalue('T2W', 1)[0] # panel row 2
             elif i == 2: # outdoor
                 aivalue = ac.get_aivalue('T3W', 1)[0] # panel row 3
-            elif i == 3: # hotwater
-                aivalue = ac.get_aivalue('T4W', 1)[0] # panel row 4
+            ##elif i == 3: # hotwater
+            ##    aivalue = ac.get_aivalue('T4W', 1)[0] # panel row 4
 
             elif i == 4: # battery
                 batt_presence = ac.get_aivalues('BPW') # car and batt voltage presence
@@ -170,27 +170,24 @@ def app_doall():
             elif i == 5: # feet and door chk via AI1. values 3600, 3150, 2580
                 aivalue = ac.get_aivalue('A1V',1)[0] # ai1 voltage 0..4095 mV, pullup 1 k on
                 if aivalue != None:
-                    fdvalue=777 # initially
-                    if aivalue < 100: # all ok, foot down, door closed
-                        fdvalue = 0 # ok, panel row 6
-                    else:
-                        if aivalue > 3700:
-                            log.warning('feet/door line cut!')
-                            fdvalue = 990
-                        elif aivalue > 2400 and aivalue < 2800:
-                            fdvalue = 1
-                        elif aivalue > 2800 and aivalue < 3300:
-                            fdvalue = 2
-                        elif aivalue > 3300 and aivalue < 3700:
-                            fdvalue = 3
-                        elif aivalue < 1000:
-                            fdvalue = 0 # ok
+                    if aivalue > 3700:
+                        ##log.warning('feet/door line cut!')
+                        fdvalue = 999
+                    elif aivalue > 2400 and aivalue < 2800:
+                        fdvalue = 1
+                    elif aivalue > 2800 and aivalue < 3300:
+                        fdvalue = 2
+                    elif aivalue > 3300 and aivalue < 3700:
+                        fdvalue = 3
+                    elif aivalue < 1000:
+                        fdvalue = 0 # ok
                     #log.info('feet/door aivalue '+str(aivalue)+', shvalue '+str(fdvalue)) ##
-                    if fdvalue != self_fdvalue:
+
+                    if fdvalue != 999 and fdvalue != self_fdvalue:
                         d.set_divalue('FDW',1,(fdvalue & 1))
                         d.set_divalue('FDW',2,(fdvalue & 2) >> 1)
                         log.info('NEW feet/door aivalue '+str(aivalue)+', fdvalue '+str(fdvalue))
-                        self_fdvalue = fdvalue
+                    self_fdvalue = fdvalue
                     shvalue = (fdvalue & 1)
 
                         
@@ -207,7 +204,7 @@ def app_doall():
                 
             linereg = list(panel.get_data().keys())[i]
             panel.send(linereg, shvalue) ## sending to panel row with correct reg address
-            #ac.set_aisvc('PNW', i + 1, shvalue) # to report only / NO
+            ac.set_aisvc('PNW', i + 1, shvalue) # to report only
             #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
             #log.debug('PNW.'+str(i + 1)+' '+str(shvalue))
 
@@ -319,7 +316,7 @@ from droidcontroller.read_gps import * #
 gps = ReadGps(speed = 4800) # USB
 
 from droidcontroller.panel_seneca import *
-panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={1000:-999,1001:-999, 1003:-999,1004:-999, 1006:-999,1007:-999,1009:-999}, power = 0)
+panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={1000:-999,1001:-999, 1003:-999,1004:-999, 1006:-999,1007:-999,1009:-999}, power = 0) # actual
 #panel = PanelSeneca(mb, mba = 1, mbi = 0, linedict={400:-999,401:-999, 403:-999,404:-999, 406:-999,407:-999,409:-999}, power = 0) # test
 
 ####
