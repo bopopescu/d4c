@@ -132,9 +132,22 @@ def app_doall():
                     log.info('light '+str(i + 1)+' new state '+str(ledstate[0]))
                     self_ledstates[i] = ledstate[0]
                 d.set_dovalue('LTW', i+1, ledstate[0]) # actual output service, fixed in dchannels.py 13.9.2015
-                ledsum += ledstate[0]
-            
-        ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
+                ledsum += ledstate[0] << i
+                if ledsum > 0: 
+                    panelpower = 1
+                else:
+                    panelpower = 0
+                    
+            if panelpower != panel.get_power():
+                log.info('NEW panelpower '+str(panelpower))
+                panel.set_power(panelpower)
+                d.set_dovalue('PPS',1,panelpower)
+            else:
+                log.info('no change in panelpower '+str(panelpower))
+                
+            self_di = di
+                        
+       ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
         for i in range(7): # panel values 7 rows
             if i == 0: # sauna temp
                 aivalue = ac.get_aivalue('T1W', 1)[0] # can be None!
@@ -204,29 +217,10 @@ def app_doall():
                 
             linereg = list(panel.get_data().keys())[i]
             panel.send(linereg, shvalue) ## sending to panel row with correct reg address
-            ac.set_aisvc('PNW', i + 1, shvalue) # to report only
+            ac.set_aivalue('PNW', i + 1, shvalue) # to report only
             #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
             #log.debug('PNW.'+str(i + 1)+' '+str(shvalue))
 
-        values = d.get_divalues('LTW') # do1..do4
-        if values != None and len(values) > 0:
-            shvalue = 0
-            for j in range(len(values)):
-                shvalue += values[j] << j
-            
-            if shvalue > 0:
-                panelpower = 1
-            else:
-                panelpower = 0
-                
-            if panelpower != panel.get_power():
-                log.info('NEW panelpower '+str(panelpower))
-                panel.set_power(panelpower)
-                d.set_dovalue('PPS',1,self_panelpower)
-        
-                
-        else:
-            log.warning('LTW values strange: '+str(values))
             
         d.sync_do() # actual output writing
         self_di = di
