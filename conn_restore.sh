@@ -2,8 +2,15 @@
 #droid4control 2015
 #FIXME / pane lock /tmp, ps nr
 
-exec 0</dev/null
-exec>>/root/d4c/appd.log 2>&1 # nii stdout kui stderr, symlink /tmp/appd.log
+#####
+if /usr/bin/tty -s ; then
+    echo "${0} interactive shell, using stdout"
+else
+    exec 0</dev/null
+    exec>>/root/d4c/appd.log 2>&1
+fi
+####
+
 
 testrun() { # test anything given as parameters for success
     $* > /dev/null

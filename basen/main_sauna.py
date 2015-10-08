@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-APVER='basen sauna 24.09.2015' # for olinuxino
+APVER='basen sauna 07.10.2015' # for olinuxino
 # get_conf kasutusse ka mac jaoks
 # get_ip lisatud ip jalgimiseks, sh tun olemasolu puhul
 # molemad uniscada.py sisse, mis neid vajavad (votmesonade mac ja ip kontroll!)
@@ -147,7 +147,8 @@ def app_doall():
                 
             self_di = di
                         
-       ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
+        ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
+        # temp temp temp temp aku jalg uks 
         for i in range(7): # panel values 7 rows
             if i == 0: # sauna temp
                 aivalue = ac.get_aivalue('T1W', 1)[0] # can be None!
@@ -209,7 +210,7 @@ def app_doall():
                 
             #######
                         
-            if i < 4:  # temperatures
+            if i < 4:  # temperatures, i = 0..3
                 if aivalue != None:
                     shvalue = int(round(aivalue / 10.0, 0))
                 else:
@@ -217,6 +218,7 @@ def app_doall():
                 
             linereg = list(panel.get_data().keys())[i]
             panel.send(linereg, shvalue) ## sending to panel row with correct reg address
+            log.info('sent to panel '+str((linereg, shvalue))) ##
             ac.set_aivalue('PNW', i + 1, shvalue) # to report only
             #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
             #log.debug('PNW.'+str(i + 1)+' '+str(shvalue))

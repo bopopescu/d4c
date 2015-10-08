@@ -1,13 +1,13 @@
 #!/usr/bin/python
 
-APVER='monitor 23.12.2014' # for olinuxino
+APVER='monitor 23.12.2014' # for olinuxino SEE YRITAB 699 kASUTADA! ETTEVAATUST!
 # ainult monitooring ilma juhtimiseta. kasutab vajadusel ka mbus!
 
 
 #################### functions ######################################################
 
 def get_hostID(filename):
-    ''' ID as mac is not reliable on olinuxino. use the mac from file to become id ! '''
+    ''' ID as mac is not static on olinuxino. use the mac from file to become the id ! '''
     mac = None
     try:
         with open(filename) as f:

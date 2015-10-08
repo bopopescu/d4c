@@ -1,5 +1,14 @@
 #!/usr/bin/sh
 
+#####
+if /usr/bin/tty -s ; then
+    echo "${0} interactive shell, using stdout"
+else
+    exec 0</dev/null
+    exec>>/root/d4c/appd.log 2>&1
+fi
+####
+	    
 if killall -TERM openvpn
 then
   echo vpn stopped

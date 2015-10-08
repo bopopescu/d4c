@@ -78,9 +78,9 @@ class CustomerApp(object):
             ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
             for i in range(7): # panel values 7 rows
                 if i == 0: # sauna temp
-                    aivalue = ac.get_aivalue('T1W', 1)[0] # can be None!
+                    aivalue = ac.get_aivalue('T1W', 1)[0] # can be None! sauna
                 elif i == 1: # bath
-                    aivalue = ac.get_aivalue('T2W', 1)[0] # panel row 2
+                    aivalue = ac.get_aivalue('T2W', 1)[0] # panel row 2 bath
                 elif i == 2: # outdoor
                     aivalue = ac.get_aivalue('T3W', 1)[0] # panel row 3
                 elif i == 3: # hotwater
@@ -143,12 +143,14 @@ class CustomerApp(object):
                         shvalue = int(round(aivalue / 10.0, 0))
                         
                 if shvalue != None: # set the aovalues for panel rows in aochannels table
-                    ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
+                    #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
+                    ac.set_aivalue('PNW', i + 1, shvalue) # panel row register content to monitor
                     log.debug('PNW.'+str(i + 1)+' '+str(shvalue))
                 #log.info('panel row loop end')
                 # panel row loop end
 
             values = d.get_divalues('LTW') # do1..do4
+            log.info('values from LTW '+str(values))
             if values != None and len(values) > 0:
                 shvalue = 0
                 for j in range(len(values)):

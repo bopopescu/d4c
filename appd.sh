@@ -1,9 +1,14 @@
 #!/usr/bin/bash
 #droid4control linux controller startup, started by /etc/rc.local
 # vt /etc/rc.local  logi suunamise kohta /root/d4c/appd.log
-exec 0</dev/null
-exec>>/root/d4c/appd.log 2>&1
-
+#####
+if /usr/bin/tty -s ; then
+    echo "${0} interactive shell, using stdout"
+else
+    exec 0</dev/null
+    exec>>/root/d4c/appd.log 2>&1
+fi
+####
 
 APPCFG=/root/d4c/appcfg.sh
 

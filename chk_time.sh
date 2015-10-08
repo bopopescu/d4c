@@ -2,8 +2,15 @@
 #test time once a day
 # 7 7 * * * /root/d4c/chk_time.sh
 
-exec 0</dev/null
-exec>>/root/d4c/appd.log 2>&1
+#####
+if /usr/bin/tty -s ; then
+    echo "${0} interactive shell, using stdout"
+else
+    exec 0</dev/null
+    exec>>/root/d4c/appd.log 2>&1
+fi
+####
+
 
 TIMEOK=0
 
@@ -19,17 +26,26 @@ if [ `/usr/local/bin/ps1 ntpd | wc -l` -eq 0 ]; then # ntpd finished, time shoul
     TIMEOK=1
     #echo ntpd success...
     if [ `date +%s` -gt 1430983028 ]; then # double checking
-        if test -e /dev/rtc0; then
+        if [ ! "$RTC" = "0" ]; then
             /usr/bin/hwclock -w &
             echo time written into RTC
             exit 0
-        fi
+        else
+	    echo no RTC $RTC to write...
+	fi
     else
         echo still wrong time...
         exit 1
     fi
     exit 0
 else
-    echo got no time...
-    exit 1
+    killall -TERM ntpd
+    if ntpdate 212.47.200.1
+    then
+       echo ntpdate 212.47.200.1 worked
+       exit 0
+    else
+       echo got no time... chk connectivity.
+       exit 1
+    fi
 fi

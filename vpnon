@@ -1,13 +1,37 @@
 #!/usr/bin/sh
 #vpn will be closed after 1000 s of inactivity, use $TOUT=0 not to be closed
 
-exec 0</dev/null
-exec>>/root/d4c/appd.log 2>&1
+#####
+if /usr/bin/tty -s ; then
+    echo "${0} interactive shell, using stdout"
+else
+    exec 0</dev/null
+    exec>>/root/d4c/appd.log 2>&1
+fi
+####
+        
+VPNLOG=/root/d4c/openvpn.log
+
+if [ "$1" = "0" ]; then
+    TOUT=0
+    INA=""
+else
+    if [ "$1" = "" ];then
+        if [ "$TOUT" = "" ]; then
+            TOUT=1000
+        fi
+    else
+        TOUT=$1
+    fi
+    INA="--inactive $TOUT"
+fi
+echo $0 using timeout $TOUT via INA $INA
 
 if [ -x /root/d4c/appcfg.sh ]; then
     . /root/d4c/appcfg.sh   # setting common variables
 else
     echo missing appcfg.sh!
+    TOUT=0
     sleep 2
 fi
 
@@ -16,12 +40,16 @@ if [ "$TOUT" = "" ];then
 fi
 
 
-if [ `/usr/local/bin/ps1 openvpn | wc -l` -gt 0 ]; then
+if [ `/usr/local/bin/ps1 openvpn daemon | wc -l` -gt 0 ]; then
     echo "${0}: vpn already started..." 
     exit 0
 fi
 
-if openvpn --cd /etc/openvpn --daemon --config itvilla.conf --inactive $TOUT  # replace itvilla.conf with <mac>.conf
+defgw=`ip route | grep default | cut -d" " -f3`  # igaks juhuks, vahel ei teki korralikku yhendust...
+#alati tekitab uue logi
+
+if openvpn --cd /etc/openvpn --daemon --config itvilla.conf $INA --route $defgw --log $VPNLOG
+#if openvpn --cd /etc/openvpn --daemon --config itvilla.conf $INA  # replace itvilla.conf with <mac>.conf
 then
   echo "${0}: vpn started" 
   exit 0
