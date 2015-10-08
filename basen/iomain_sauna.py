@@ -1,4 +1,4 @@
-APVER='ioloop app basen 09.2015'
+APVER='ioloop app basen 08.10.2015'
 ''' highest level script for basen sauna app
 from iomain_sauna import * # testing
 cua.ca.di_reader(); d.get_chg_dict(); d.sync_do(); mb[0].read(1,0,2)
@@ -13,14 +13,18 @@ while True:
 
 
 '''
-# FIXME - uuestikaivitusel loe ja sailita reg0 senine seis!
 
 import os, sys, time, traceback
 from droidcontroller.uniscada import * # UDPchannel, TCPchannel
 from droidcontroller.controller_app import *
 from droidcontroller.statekeeper import *
+
 from droidcontroller.read_gps import * #
 gps = ReadGps(speed = 4800) # USB
+
+from droidcontroller.panel_seneca import *
+panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={1000:-999,1001:-999, 1003:-999,1004:-999, 1006:-999,1007:-999,1009:-999}, power = 0) # actual
+#panel = PanelSeneca(mb, mba = 1, mbi = 0, linedict={400:-999,401:-999, 403:-999,404:-999, 406:-999,407:-999,409:-999}, power = 0) # test
 
 
 import logging
@@ -45,7 +49,7 @@ class CustomerApp(object):
         print('ControllerApp instance created')
 
     def app(self, appinstance):
-        ''' customer-specific things, like lighting control '''
+        ''' customer-specific things, like lighting control 
         ts_app = time.time()
         res= 0
         footwarning = 0
@@ -189,7 +193,163 @@ class CustomerApp(object):
         
         print('### main app end ###'+str(self.panelpower)) ####### app end ####
         
+    '''
+    #global ts, ts_app, self_di, self_ledstates, self_chlevel, self_fdvalue, self_panelpower, self_ts_gps
+    #ts_app = time.time()
+    self.di = None
+    self.ledstates = None
+    self.chlevel = 0
+    self.fdvalue = 0 # feet + door
+    self.panelpower = 0
+    ts_app = time.time()
+    self.ts_gps = ts_app
+    res= 0
+    footwarning = 0
+    shvalue = None
+    values = None
+    voltage = None
+    chlevel = 0
 
+    di = d.get_divalues('DIW')
+    do = d.get_divalues('DOW')
+    if di != self.di:
+        log.info('di changed: '+str(di)+', do: '+str(do)) ##
+
+    # switch on panelpower if any of led strips is on
+    # switch off panelpower if all led strips are off
+    
+    try:
+        if self.di != None and di != self.di: # only changes
+            ledsum = 0
+            for i in range(4):
+                if di[i] != self.di[i] and di[i] == 0: # change, press start
+                    led[i].toggle()
+                ledstate = led[i].get_state()
+                if ledstate[0] != self.ledstates[i]:
+                    log.info('light '+str(i + 1)+' new state '+str(ledstate[0]))
+                    self.ledstates[i] = ledstate[0]
+                d.set_dovalue('LTW', i+1, ledstate[0]) # actual output service, fixed in dchannels.py 13.9.2015
+                ledsum += ledstate[0] << i
+                if ledsum > 0: 
+                    panelpower = 1
+                else:
+                    panelpower = 0
+                    
+            if panelpower != panel.get_power():
+                log.info('NEW panelpower '+str(panelpower))
+                panel.set_power(panelpower)
+                d.set_dovalue('PPS',1,panelpower)
+            else:
+                log.info('no change in panelpower '+str(panelpower))
+                
+            self.di = di
+                        
+        ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
+        # temp temp temp temp aku jalg uks 
+        for i in range(7): # panel values 7 rows
+            if i == 0: # sauna temp
+                aivalue = ac.get_aivalue('T1W', 1)[0] # can be None!
+            elif i == 1: # bath
+                aivalue = ac.get_aivalue('T2W', 1)[0] # panel row 2
+            elif i == 2: # outdoor
+                aivalue = ac.get_aivalue('T3W', 1)[0] # panel row 3
+            ##elif i == 3: # hotwater
+            ##    aivalue = ac.get_aivalue('T4W', 1)[0] # panel row 4
+
+            elif i == 4: # battery
+                batt_presence = ac.get_aivalues('BPW') # car and batt voltage presence
+                voltage = ac.get_aivalues('BTW') # panel row 5, sauna battery
+                shvalue = voltage[1] # sauna batt
+                #if voltage != None and voltage[0] != None and voltage[1] != None and voltage[0] > voltage[1] + 10 and voltage[0] > 13200: # recharging possible
+                if voltage != None and voltage[0] != None and voltage[1] != None and voltage[0] > 13300: # recharging possible
+                    chlevel = 1 # FIXME
+                    #if voltage[0] > voltage[1] + 1000: # low current initially
+                    #    chlevel = 1
+                    #elif voltage[0] < voltage[1] + 500: # directly together for faster charging ???? CHK if allowed, current and voltage
+                    #    chlevel = 2
+                else:
+                    chlevel= 0 # no car voltage present or engine stopped
+
+                #log.info('batt charging level '+str(chlevel)+', voltages '+str(voltage)) ##
+                if chlevel != self.chlevel:
+                    log.info('NEW batt charging level '+str(chlevel)+', voltages '+str(voltage)) 
+                    d.set_dovalue('BCW', 1, (chlevel & 1)) # via resistor
+                    d.set_dovalue('BCW', 2, (chlevel & 2) >> 1)
+                    self.chlevel = chlevel
+
+
+            elif i == 5: # feet and door chk via AI1. values 3600, 3150, 2580
+                aivalue = ac.get_aivalue('A1V',1)[0] # ai1 voltage 0..4095 mV, pullup 1 k on
+                if aivalue != None:
+                    if aivalue > 3700:
+                        ##log.warning('feet/door line cut!')
+                        fdvalue = 999
+                    elif aivalue > 2400 and aivalue < 2800:
+                        fdvalue = 1
+                    elif aivalue > 2800 and aivalue < 3300:
+                        fdvalue = 2
+                    elif aivalue > 3300 and aivalue < 3700:
+                        fdvalue = 3
+                    elif aivalue < 1000:
+                        fdvalue = 0 # ok
+                    #log.info('feet/door aivalue '+str(aivalue)+', shvalue '+str(fdvalue)) ##
+
+                    if fdvalue != 999 and fdvalue != self.fdvalue:
+                        d.set_divalue('FDW',1,(fdvalue & 1))
+                        d.set_divalue('FDW',2,(fdvalue & 2) >> 1)
+                        log.info('NEW feet/door aivalue '+str(aivalue)+', fdvalue '+str(fdvalue))
+                    self.fdvalue = fdvalue
+                    shvalue = (fdvalue & 1)
+
+                        
+            elif i == 6: # door
+                shvalue = (self.fdvalue & 2) >> 1 # door bit in self.fdvalue
+                
+            #######
+                        
+            if i < 4:  # temperatures, i = 0..3
+                if aivalue != None:
+                    shvalue = int(round(aivalue / 10.0, 0))
+                else:
+                    shvalue = 9999 # sensor disconnected
+                
+            linereg = list(panel.get_data().keys())[i]
+            panel.send(linereg, shvalue) ## sending to panel row with correct reg address
+            log.info('sent to panel '+str((linereg, shvalue))) ##
+            ac.set_aivalue('PNW', i + 1, shvalue) # to report only
+            #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
+            #log.debug('PNW.'+str(i + 1)+' '+str(shvalue))
+
+            
+        d.sync_do() # actual output writing
+        self.di = di
+        #ac.sync_ao() # no need with panel instance in use
+        #print('app panelpower '+str(panel.get_power)) ##
+        ##  end panel update ##
+
+    except:
+        print('main app ERROR')
+        traceback.print_exc()
+    
+
+    if gps and ts_app > self.ts_gps + 30:
+        self.ts_gps = ts_app
+        try:
+            coord = gps.get_coordinates()
+            if coord != None and coord[0] != None and coord[1] != None:
+                ac.set_airaw('G1V',1,int(coord[0] * 1000000)) # lat
+                ac.set_airaw('G2V',1,int(coord[1] * 1000000)) # lng
+            else:
+                log.warning('NO coordinates from GPS device, coord '+str(coord))
+            
+        except:
+            print('gps ERROR')
+            traceback.print_exc()
+    
+    #print('### main app end ###'+str(self.panelpower)) ####### app end ####
+        
+
+############################################        
 cua = CustomerApp() # test like cua.ca.udp_sender()
 
 if __name__ == "__main__":
