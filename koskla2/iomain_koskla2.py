@@ -33,11 +33,13 @@ class CustomerApp(object):
         #flowrate = 0
         di_state = s.get_value('D1W','dichannels')[0:3] # didebug svc, first 3 inputs are water meters w pulse output
         #change the pulse input order
-        temp = di_state[0]
-        di_state[0] = di_state[1]
-        di_state[1] = temp
-        
-        pump = s.get_value('D1W','dichannels')[3:6] # didebug svc, next 3 inputs are pumps on the same tube with previous water meters
+        try:
+            temp = di_state[0]
+            di_state[0] = di_state[1]
+            di_state[1] = temp
+            pump = s.get_value('D1W','dichannels')[3:6] # didebug svc, next 3 inputs are pumps on the same tube with previous water meters
+        except:
+            log.warning('problem with reading D1W data')
         metercoeff = [10, 10, 10] # litres per pulse
         flowfixed = [1.67, 1.28, 0.172] # l/s - esimesed 2 peaks olema 1.67 ehk 100 l/min
         
