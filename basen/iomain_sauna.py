@@ -1,4 +1,4 @@
-APVER='ioloop app basen 08.10.2015' # miks sellega vahel udp saatmine ei hakka toole? main_sauna on parem selles osas.
+APVER='ioloop app basen 18.10.2015' # miks sellega vahel udp saatmine ei hakka toole? main_sauna on parem selles osas.
 # aga see on veidi kiirem, kui main_sauna
 
 ''' highest level script for basen sauna app
@@ -17,6 +17,11 @@ while True:
 '''
 
 import os, sys, time, traceback
+
+sys.path.append('/data/mybasen/python') # basen tools
+#from InformerBase import * # seal py2
+import string, json, re, signal, requests, base64, http.client # not httplib for py3!
+
 from droidcontroller.uniscada import * # UDPchannel, TCPchannel
 from droidcontroller.controller_app import *
 from droidcontroller.statekeeper import *
@@ -30,14 +35,34 @@ panel = PanelSeneca(mb, mba = 3, mbi = 0, power = 0) # actual
 
 
 import logging
-logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+#logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 log = logging.getLogger(__name__)
+
+requests_log = logging.getLogger("requests.packages.urllib3") # to see more
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
 
 self_di = [0, 0, 0, 0]
 self_ledstates = [0, 0, 0, 0]
 self_fdvalue = 0
 self_panelpower = 0
 ts = time.time()
+channels2basen = {}
+channels2basen.update({0:['TempSauna','double',10]}) # name, type, divisor
+channels2basen.update({1:['TempBath','double',10]})
+channels2basen.update({2:['TempOutdoor','double',10]})
+channels2basen.update({3:['TempBattery','double',10]})
+channels2basen.update({4:['VoltageBatt','double',1000]})
+channels2basen.update({5:['FeetUp','double',None]})
+channels2basen.update({6:['DoorOpen','double',None]})
+channels2basen.update({7:['CoordLat','long',1]})
+channels2basen.update({8:['CoordLng','long',1]})
+channels2basen.update({9:['Light1','double',None]}) # with None do not round
+channels2basen.update({10:['Light2','double',None]}) # with None do not round
+channels2basen.update({11:['Light3','double',None]}) # with None do not round
+channels2basen.update({12:['Light4','double',None]}) # with None do not round
+values2basen = {} # id:value
 
 led = [] # lighting instances
 for i in range(4): # button triggers
@@ -46,6 +71,12 @@ for i in range(4): # button triggers
 class CustomerApp(object):
     def __init__(self): # create instances
         ''' comm, udp. controllerapp jne '''
+        self.aid = 'itvilla'
+        self.uid = b'itvilla' # binary!
+        self.passwd = b'MxPZcbkjdFF5uEF9' # binary!
+        self.path= 'tutorial/testing/sauna'
+        self.url = 'https://mybasen.pilot.basen.com/_ua/'+self.aid+'/v0.1/data'
+        
         self.ca = ControllerApp(self.app)
         self.di = None
         self.footwarning = 0
@@ -55,6 +86,7 @@ class CustomerApp(object):
         self.ledstates = [0, 0, 0, 0]
         self.fdvalue = 777
         self.charge_stop_timer = None
+        self.basen_send_timer = None
         self.gps = ReadGps(speed = 4800) # USB
         self.loop = tornado.ioloop.IOLoop.instance() # for gps
         self.gps_scheduler = tornado.ioloop.PeriodicCallback(self.gps_reader, 60000, io_loop = self.loop) # gps 60 s
@@ -64,7 +96,7 @@ class CustomerApp(object):
 
     def app(self, appinstance):
         ''' customer-specific things, like lighting control '''
-        global ts, self_di, self_ledstates, self_fdvalue, self_panelpower, self_ts_gps
+        global ts, self_di, self_ledstates, self_fdvalue, self_panelpower, self_ts_gps, channels2basen, values2basen
         ts = time.time()
         res= 0
         footwarning = 0
@@ -91,6 +123,7 @@ class CustomerApp(object):
                     if ledstate[0] != self_ledstates[i]:
                         log.info('light '+str(i + 1)+' new state '+str(ledstate[0]))
                         self_ledstates[i] = ledstate[0]
+                        values2basen.update({9+i : ledstate[0]}) # for basen
                     d.set_dovalue('LTW', i+1, ledstate[0]) # actual output service, fixed in dchannels.py 13.9.2015
                     ledsum += ledstate[0] << i
                     if ledsum > 0:
@@ -117,7 +150,7 @@ class CustomerApp(object):
                 elif i == 2: # outdoor
                     aivalue = ac.get_aivalue('T3W', 1)[0] # panel row 3
                 elif i == 3: # hotwater
-                    aivalue = None # ac.get_aivalue('T4W', 1)[0] # panel row 4, temporarely missing
+                    aivalue = ac.get_aivalue('T4W', 1)[0] # panel row 4, temporarely in battery box
 
                 elif i == 4: # battery
                     batt_presence = ac.get_aivalues('BPW') # car and batt voltage presence
@@ -189,12 +222,22 @@ class CustomerApp(object):
                 #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
                 #log.debug('PNW.'+str(i + 1)+' '+str(shvalue))
 
-
+                if i < 4:
+                    values2basen.update({i : aivalue}) ## for mybasen portal
+                else: # 4..6 here. 7,8 gpr, 9..12 lights
+                    values2basen.update({i : shvalue})
+                
+                
             d.sync_do() # actual output writing
             self_di = di
             #ac.sync_ao() # no need with panel instance in use
             #print('app panelpower '+str(panel.get_power)) ##
             ##  end panel update ##
+            
+            if self.basen_send_timer:
+                self.loop.remove_timeout(self.basen_send_timer)
+            self.basen_send_timer = self.loop.add_timeout(60000, self.basen_send)
+                        
 
         except:
             print('main app ERROR')
@@ -203,11 +246,14 @@ class CustomerApp(object):
 
     def gps_reader(self):
         ''' Read GPS '''
+        global values2basen
         try:
             coord = self.gps.get_coordinates()
             if coord != None and coord[0] != None and coord[1] != None:
                 ac.set_airaw('G1V',1,int(coord[0] * 1000000)) # lat
                 ac.set_airaw('G2V',1,int(coord[1] * 1000000)) # lng
+                aivalues2basen.update({7 : int(coord[0])})
+                aivalues2basen.update({8 : int(coord[1])})
             else:
                 log.warning('NO coordinates from GPS device, coord '+str(coord))
 
@@ -216,6 +262,72 @@ class CustomerApp(object):
             traceback.print_exc()
 
 
+    def mybasen_rows(self):
+        ''' Create datta rows for mybasen '''
+        global values2basen, channels2basen
+        self.rows = []
+        for key in values2basen: # some channels may be without value in the beginning. add time?
+            # show chan, type, value
+            if channels2basen[key][2] != None:
+                value = values2basen[key] / channels2basen[key][2]
+            else:
+                value = int(values2basen[key])
+            #log.info('4basen '+str(channels2basen[key][0:2])+' '+str(value))
+            row = "{"
+            row += "\"channel\":\"" + str(channels2basen[key][0]) + "\","
+            row += "\"" + str(channels2basen[key][1]) + "\":" + str(value) # + ","
+            #row += "\"comment\":\"" + str(self.comment) + "\","
+            #row += "\"unit\":\"" + str(self.unit) + "\""
+            row += "}"
+            log.info(row)
+            self.rows.append(row)
+
+    def createhttpheaders(self):
+        '''create basic auth headers'''
+        authstr = 'aXR2aWxsYTpNeFBaY2JramRGRjV1RUY5' # in base64  FIXME
+            #"Basic %s" % (
+            #base64.b64encode("%s:%s" % (
+            #        self.uid, self.passwd)),)
+        self.httpheaders = {
+            "Content-Type": "application/json",
+            "Authorization": "Basic " + authstr
+            }
+        log.info('headers: '+str(self.httpheaders))
+        
+        
+    def domessage(self):
+        ''' Create json message for the given subpath and uid+password '''
+        # [{"dstore":{"path":"tutorial/testing/unit1","rows":[{"channels":[{"channel":"temp","double":23.3},{"channel":"weather","string":"Balmy"}]}]}}] # naide
+        # [{"dstore":{"path":"tutorial/testing/sauna","rows":[{"channels":[{"channel":"TempSauna","double":0.1},{"channel":"TempBath","double":0.2}]}]}}] # tekib ok
+        msg = '[{\"dstore\":{\"path\":'
+        msg += '\"' + self.path + '\",'
+        msg += '\"rows\":[{"channels":['
+        for row in self.rows:
+            msg += row
+            msg += ","
+        msg = msg.rstrip(",")
+        msg += ']}]}}]'  # close 
+        log.debug('msg: '+str(msg))
+        return msg
+        
+    def mybasen_send(self, message):
+        '''Send the message over https POST'''
+        self.createhttpheaders()
+        try:
+            #r = requests.post(self.url, data=message, headers=self.httpheaders) # NOT SUPPORTED!
+            r = requests.put(self.url, data=message, headers=self.httpheaders) # returns status code
+            log.info('response: '+str(r.content))
+        except:
+            logging.error("https connection to mybasen failed")
+            return False
+        
+        #if r != 200:
+        #    logging.error("https connection response not ok "+str(r))
+        #    return False
+        return True
+        
+    
+ 
     def charge_stop(self):
         ''' possible battery charge stop '''
         self.chlevel = 0  # disconnnect for a while once a minute, will reconnect if needed
@@ -223,9 +335,20 @@ class CustomerApp(object):
             self.loop.remove_timeout(self.charge_stop_timer)
             self.charge_stop_timer = None
 
-############################################
-cua = CustomerApp() # test like cua.ca.udp_sender()
+            
+    def basen_send(self):
+        ''' the whole sending process with ioloop timer '''
+        self.mybasen_rows()
+        self.mybasen_send(self.domessage())
+        if self.basen_send_timer:
+            self.loop.remove_timeout(self.basen_send_timer)
+            self.basen_send_timer = None
+            
+            
 
+############################################
+cua = CustomerApp() # test like cua.ca.udp_sender() or cua.ca.app()
+# test: from iomain_sauna  import *; values2basen.update({1:2, 0:1}); cua.mybasen_rows(); mess=cua.domessage(); cua.mybasen_send(mess)
 if __name__ == "__main__":
     tornado.ioloop.IOLoop.instance().start() # start your loop, event-based from now on
 
