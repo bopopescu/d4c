@@ -252,8 +252,8 @@ class CustomerApp(object):
             if coord != None and coord[0] != None and coord[1] != None:
                 ac.set_airaw('G1V',1,int(coord[0] * 1000000)) # lat
                 ac.set_airaw('G2V',1,int(coord[1] * 1000000)) # lng
-                aivalues2basen.update({7 : int(coord[0])})
-                aivalues2basen.update({8 : int(coord[1])})
+                values2basen.update({7 : int(coord[0])})
+                values2basen.update({8 : int(coord[1])})
             else:
                 log.warning('NO coordinates from GPS device, coord '+str(coord))
 
