@@ -18,7 +18,7 @@ while True:
 
 import os, sys, time, traceback
 
-sys.path.append('/data/mybasen/python') # basen tools
+#sys.path.append('/data/mybasen/python') # basen tools
 #from InformerBase import * # seal py2
 import string, json, re, signal, requests, base64, http.client # not httplib for py3!
 
@@ -76,7 +76,7 @@ class CustomerApp(object):
         self.passwd = b'MxPZcbkjdFF5uEF9' # binary!
         self.path= 'tutorial/testing/sauna'
         self.url = 'https://mybasen.pilot.basen.com/_ua/'+self.aid+'/v0.1/data'
-        
+
         self.ca = ControllerApp(self.app)
         self.di = None
         self.footwarning = 0
@@ -86,16 +86,19 @@ class CustomerApp(object):
         self.ledstates = [0, 0, 0, 0]
         self.fdvalue = 777
         self.charge_stop_timer = None
-        self.basen_send_timer = None
         self.gps = ReadGps(speed = 4800) # USB
-        self.loop = tornado.ioloop.IOLoop.instance() # for gps
-        self.gps_scheduler = tornado.ioloop.PeriodicCallback(self.gps_reader, 60000, io_loop = self.loop) # gps 60 s
+        self.loop = tornado.ioloop.IOLoop.instance() # for gps and basen_send
+        self.gps_scheduler = tornado.ioloop.PeriodicCallback(self.gps_reader, 60000, io_loop = self.loop) # gps 60 s AND basen_send
         self.gps_scheduler.start()
         print('ControllerApp instance created')
 
 
     def app(self, appinstance):
-        ''' customer-specific things, like lighting control '''
+        ''' customer-specific things, like lighting control
+        # switch on panelpower if any of led strips is on
+        # switch off panelpower if all led strips are off
+        '''
+
         global ts, self_di, self_ledstates, self_fdvalue, self_panelpower, self_ts_gps, channels2basen, values2basen
         ts = time.time()
         res= 0
@@ -109,9 +112,6 @@ class CustomerApp(object):
         do = d.get_divalues('DOW')
         if di != self_di:
             log.info('di changed: '+str(di)+', do: '+str(do)) ##
-
-        # switch on panelpower if any of led strips is on
-        # switch off panelpower if all led strips are off
 
         try:
             if self_di != None and di != self_di: # only changes
@@ -179,7 +179,6 @@ class CustomerApp(object):
                         d.set_dovalue('BCW', 2, (self.chlevel & 2) >> 1)
                         self.last_chlevel = self.chlevel
 
-
                 elif i == 5: # feet and door chk via AI1. values 3600, 3150, 2580
                     aivalue = ac.get_aivalue('A1V',1)[0] # ai1 voltage 0..4095 mV, pullup 1 k on
                     if aivalue != None:
@@ -203,41 +202,28 @@ class CustomerApp(object):
                         self_fdvalue = fdvalue
                         shvalue = (fdvalue & 1)
 
-
                 elif i == 6: # door
                     shvalue = (self_fdvalue & 2) >> 1 # door bit in self_dvalue
 
                 #######
 
                 if i < 4:  # temperatures, i = 0..3
+                    values2basen.update({i : aivalue}) ## for mybasen portal
                     if aivalue != None:
                         shvalue = int(round(aivalue / 10.0, 0))
                     else:
                         shvalue = 9999 # sensor disconnected
+                else: # 4..6 here. 7,8 gpr, 9..12 lights
+                    values2basen.update({i : shvalue})
 
                 linereg = sorted(list(panel.get_data().keys()))[i]
                 panel.send(linereg, shvalue) ## sending to panel row with correct reg address
                 log.debug('sent to panel '+str((linereg, shvalue))) ##
                 ac.set_aivalue('PNW', i + 1, shvalue) # to report only
-                #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
-                #log.debug('PNW.'+str(i + 1)+' '+str(shvalue))
 
-                if i < 4:
-                    values2basen.update({i : aivalue}) ## for mybasen portal
-                else: # 4..6 here. 7,8 gpr, 9..12 lights
-                    values2basen.update({i : shvalue})
-                
-                
             d.sync_do() # actual output writing
             self_di = di
-            #ac.sync_ao() # no need with panel instance in use
-            #print('app panelpower '+str(panel.get_power)) ##
             ##  end panel update ##
-            
-            if self.basen_send_timer:
-                self.loop.remove_timeout(self.basen_send_timer)
-            self.basen_send_timer = self.loop.add_timeout(60000, self.basen_send)
-                        
 
         except:
             print('main app ERROR')
@@ -260,7 +246,7 @@ class CustomerApp(object):
         except:
             print('gps ERROR')
             traceback.print_exc()
-
+        self.basen_send() ## send once a minute to basen too
 
     def mybasen_rows(self):
         ''' Create datta rows for mybasen '''
@@ -293,8 +279,8 @@ class CustomerApp(object):
             "Authorization": "Basic " + authstr
             }
         log.info('headers: '+str(self.httpheaders))
-        
-        
+
+
     def domessage(self):
         ''' Create json message for the given subpath and uid+password '''
         # [{"dstore":{"path":"tutorial/testing/unit1","rows":[{"channels":[{"channel":"temp","double":23.3},{"channel":"weather","string":"Balmy"}]}]}}] # naide
@@ -306,10 +292,10 @@ class CustomerApp(object):
             msg += row
             msg += ","
         msg = msg.rstrip(",")
-        msg += ']}]}}]'  # close 
+        msg += ']}]}}]'  # close
         log.debug('msg: '+str(msg))
         return msg
-        
+
     def mybasen_send(self, message):
         '''Send the message over https POST'''
         self.createhttpheaders()
@@ -321,14 +307,14 @@ class CustomerApp(object):
             logging.error("https connection to mybasen failed")
             traceback.print_exc()
             return False
-        
+
         #if r != 200:
         #    logging.error("https connection response not ok "+str(r))
         #    return False
         return True
-        
-    
- 
+
+
+
     def charge_stop(self):
         ''' possible battery charge stop '''
         self.chlevel = 0  # disconnnect for a while once a minute, will reconnect if needed
@@ -336,20 +322,18 @@ class CustomerApp(object):
             self.loop.remove_timeout(self.charge_stop_timer)
             self.charge_stop_timer = None
 
-            
+
     def basen_send(self):
         ''' the whole sending process with ioloop timer '''
-        self.mybasen_rows()
-        self.mybasen_send(self.domessage())
-        if self.basen_send_timer:
-            self.loop.remove_timeout(self.basen_send_timer)
-            self.basen_send_timer = None
-            
-            
+        global values2basen
+        if len(values2basen) > 0: # initially empty
+            self.mybasen_rows()
+            self.mybasen_send(self.domessage())
+
+
 
 ############################################
 cua = CustomerApp() # test like cua.ca.udp_sender() or cua.ca.app()
 # test: from iomain_sauna  import *; values2basen.update({1:2, 0:1}); cua.mybasen_rows(); mess=cua.domessage(); cua.mybasen_send(mess)
 if __name__ == "__main__":
     tornado.ioloop.IOLoop.instance().start() # start your loop, event-based from now on
-
