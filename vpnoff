@@ -11,9 +11,11 @@ fi
 	    
 if killall -TERM openvpn
 then
+  rm -f /tmp/openvpn.lock
   echo vpn stopped
   exit 0
 else
   echo stopping vpn failed...
+  rm -f /tmp/openvpn.lock
   exit 1
 fi

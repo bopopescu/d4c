@@ -28,6 +28,7 @@ APPCFG=/root/d4c/appcfg.sh
 #TOUT=1000 # timeout to power cut or reboot in case of no connectivity
 #SQLDIR=/root/d4c
 ########################
+rm -f /tmp/openvpn.lock
 
 cd /root/d4c
 if [ -x $APPCFG ];then

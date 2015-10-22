@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-APVER='monitor 23.12.2014' # for olinuxino SEE YRITAB 699 kASUTADA! ETTEVAATUST!
+APVER='monitor 20.10.2015' # for olinuxino SEE YRITAB 699 kASUTADA! ETTEVAATUST!
 # ainult monitooring ilma juhtimiseta. kasutab vajadusel ka mbus!
 
 
@@ -248,8 +248,9 @@ if __name__ == '__main__':  ####################################################
     msg = ''
     stop = 0
     if OSTYPE == 'archlinux':
-        udp.led.commLED(0)
-        udp.led.alarmLED(1) # because we are rebooting
+        if 'led' in dir(udp):
+            udp.led.commLED(0)
+            udp.led.alarmLED(1) # because we are rebooting
     
 
     while stop == 0: # endless loop

@@ -40,16 +40,19 @@ if [ "$TOUT" = "" ];then
 fi
 
 
-if [ `/usr/local/bin/ps1 openvpn daemon | wc -l` -gt 0 ]; then
+#if [ `/usr/local/bin/ps1 openvpn daemon | wc -l` -gt 0 ]; then
+if [ -f /tmp/openvpn.lock ]; then
     echo "${0}: vpn already started..." 
     exit 0
+else
+    echo $$ > /tmp/openvpn.lock
 fi
 
 defgw=`ip route | grep default | cut -d" " -f3`  # igaks juhuks, vahel ei teki korralikku yhendust...
 #alati tekitab uue logi
 
-if openvpn --cd /etc/openvpn --daemon --config itvilla.conf $INA --route $defgw --log $VPNLOG
-#if openvpn --cd /etc/openvpn --daemon --config itvilla.conf $INA  # replace itvilla.conf with <mac>.conf
+#if openvpn --cd /etc/openvpn --daemon --config itvilla.conf $INA --route $defgw --log $VPNLOG
+if openvpn --cd /etc/openvpn --daemon --config itvilla.conf $INA  # replace itvilla.conf with <mac>.conf
 then
   echo "${0}: vpn started" 
   exit 0

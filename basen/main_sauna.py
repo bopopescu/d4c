@@ -109,23 +109,24 @@ def app_doall():
     res= 0
     footwarning = 0
     shvalue = None
+    fdvalue = 999
     values = None
     voltage = None
     chlevel = 0
     
     di = d.get_divalues('DIW')
     do = d.get_divalues('DOW')
-    if di != self_di:
+    if self_di != None and di != self_di:
         log.info('di changed: '+str(di)+', do: '+str(do)) ##
 
     # switch on panelpower if any of led strips is on
     # switch off panelpower if all led strips are off
     
     try:
-        if self_di != None and di != self_di: # only changes
+        if di != self_di: # only changes
             ledsum = 0
             for i in range(4):
-                if di[i] != self_di[i] and di[i] == 0: # change, press start
+                if self_di[i] != None and di[i] != None and di[i] != self_di[i] and di[i] == 0: # change, press start
                     led[i].toggle()
                 ledstate = led[i].get_state()
                 if ledstate[0] != self_ledstates[i]:
@@ -145,7 +146,6 @@ def app_doall():
             else:
                 log.info('no change in panelpower '+str(panelpower))
                 
-            self_di = di
                         
         ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
         # temp temp temp temp aku jalg uks 
@@ -170,6 +170,11 @@ def app_doall():
                     #    chlevel = 1
                     #elif voltage[0] < voltage[1] + 500: # directly together for faster charging ???? CHK if allowed, current and voltage
                     #    chlevel = 2
+                    
+                    # possible battery charge stop
+                    if ts_app > self_ts_batt + 60: # move that to ioloop timers
+                        self_ts_batt = ts_app
+                        chlevel = 0  # disconnnect for a while once a minute, will reconnect if needed
                 else:
                     chlevel= 0 # no car voltage present or engine stopped
 
@@ -216,9 +221,9 @@ def app_doall():
                 else:
                     shvalue = 9999 # sensor disconnected
                 
-            linereg = list(panel.get_data().keys())[i]
+            linereg = sorted(list(panel.get_data().keys()))[i]
             panel.send(linereg, shvalue) ## sending to panel row with correct reg address
-            log.info('sent to panel '+str((linereg, shvalue))) ##
+            log.debug('sent to panel '+str((linereg, shvalue))) ##
             ac.set_aivalue('PNW', i + 1, shvalue) # to report only
             #ac.set_aosvc('PNW', i + 1, shvalue) # panel row register write in aochannels
             #log.debug('PNW.'+str(i + 1)+' '+str(shvalue))
@@ -312,7 +317,7 @@ from droidcontroller.read_gps import * #
 gps = ReadGps(speed = 4800) # USB
 
 from droidcontroller.panel_seneca import *
-panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={1000:-999,1001:-999, 1003:-999,1004:-999, 1006:-999,1007:-999,1009:-999}, power = 0) # actual
+panel = PanelSeneca(mb, mba = 3, mbi = 0, power = 0) # actual. no negative!
 #panel = PanelSeneca(mb, mba = 1, mbi = 0, linedict={400:-999,401:-999, 403:-999,404:-999, 406:-999,407:-999,409:-999}, power = 0) # test
 
 ####
@@ -323,7 +328,7 @@ panel = PanelSeneca(mb, mba = 3, mbi = 0, linedict={1000:-999,1001:-999, 1003:-9
 
 ts = time.time() # needed for manual function testing
 ts_app = ts
-self_di = [0, 0, 0, 0]
+self_di = [None, None, None, None]
 self_ledstates = [0, 0, 0, 0]
 self_chlevel = 0
 self_fdvalue = 0

@@ -319,6 +319,7 @@ class CustomerApp(object):
             log.info('response: '+str(r.content))
         except:
             logging.error("https connection to mybasen failed")
+            traceback.print_exc()
             return False
         
         #if r != 200:
