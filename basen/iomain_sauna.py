@@ -1,20 +1,7 @@
 APVER='ioloop app basen 18.10.2015' # miks sellega vahel udp saatmine ei hakka toole? main_sauna on parem selles osas.
 # aga see on veidi kiirem, kui main_sauna
 
-''' highest level script for basen sauna app
-from iomain_sauna import * # testing
-cua.ca.di_reader(); d.get_chg_dict(); d.sync_do(); mb[0].read(1,0,2)
-cua.ca.app('test')
-
-####
-while True:
-    cua.ca.di_reader()
-    d.get_chg_dict()
-    cua.ca.app('test')
-    time.sleep(1)
-
-
-'''
+''' highest level script for basen sauna app '''
 
 import os, sys, time, traceback
 
@@ -43,11 +30,7 @@ requests_log = logging.getLogger("requests.packages.urllib3") # to see more
 requests_log.setLevel(logging.DEBUG)
 requests_log.propagate = True
 
-
-
 ts = time.time()
-
-
 
 led = [] # lighting instances
 for i in range(4): # button triggers
@@ -65,7 +48,7 @@ class CustomerApp(object):
         self.values2basen = {}
         self.bs = MyBasenSend() # aid = 'itvilla', uid = b'itvilla', passwd = b'MxPZcbkjdFF5uEF9', path= 'tutorial/testing/test_async'
         self.channels_setup()
-
+        
         self.ca = ControllerApp(self.app)
         self.di = None
         self.footwarning = 0
@@ -79,7 +62,10 @@ class CustomerApp(object):
         self.charge_stop_timer = None
         self.gps = ReadGps(speed = 4800) # USB
         self.loop = tornado.ioloop.IOLoop.instance() # for gps and basen_send
+        
         self.gps_scheduler = tornado.ioloop.PeriodicCallback(self.gps_reader, 60000, io_loop = self.loop) # gps 60 s AND basen_send
+        #self.gps_scheduler = tornado.ioloop.PeriodicCallback(self.gps_reader, 10000, io_loop = self.loop) # gps 60 s AND basen_send
+        
         self.gps_scheduler.start()
         print('ControllerApp instance created')
 
@@ -256,7 +242,7 @@ class CustomerApp(object):
             #traceback.print_exc()
 
         self.bs.basen_send(self.values2basen) ## send once a minute to basen too
-
+        log.info('di cps '+str(round(cua.ca.spm.get_speed(),2))) # saada teenusena valja?
 
     def charge_stop(self):
         ''' possible battery charge stop '''
@@ -270,6 +256,7 @@ class CustomerApp(object):
 
 ############################################
 cua = CustomerApp() # test like cua.ca.udp_sender() or cua.ca.app()
+cua.ca.spm.start()
 # test: from iomain_sauna import *; cua.values2basen.update({1:2, 0:1}); cua.bs.basen_send(cua.values2basen)
 
 if __name__ == "__main__":
