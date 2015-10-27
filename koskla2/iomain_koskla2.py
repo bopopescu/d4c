@@ -46,9 +46,10 @@ class CustomerApp(object):
         print('ControllerApp instance created')
 
 
-    def app(self, appinstance, attentioncode = 0): # attentioncode 1 = d, 2=a, 3= d+a
+    def app(self, appinstance, attentioncode=0): # attentioncode 1 = d, 2=a, 3= d+a
         ''' customer-specific things '''
         # self.ca is also usable here
+        log.info('app appinstance '+str(appinstance)+', attentioncode '+str(attentioncode))
         global ts, ts_app, el_energylast, pump_old # FIXME to self.var
         pump = [0, 0, 0]  # temporary list
         ##ts = time.time() # ajutine, testimiseks aega vaja
