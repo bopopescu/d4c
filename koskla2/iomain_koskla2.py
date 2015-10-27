@@ -23,8 +23,11 @@ pump_old = [0, 0, 0]
 
 
 from droidcontroller.heatflow import * # heat flow and energy
+from droidcontroller.speedometer import * # alternative flowrate calc
+
 he = []
 fr = []
+fr2 = [] #test speedometer abil
 for i in range(3):
     if i < 2:
         he.append(HeatExchange(flowrate=0, cp1=4200, tp1=20, cp2=4200, tp2=50, unit='hWh')) # sp1, sp2 water
@@ -32,36 +35,53 @@ for i in range(3):
         he.append(HeatExchange(flowrate=0, cp1=3525, tp1=40, cp2=3604, tp2=80, unit='hWh')) # solar, 30% ethylene glykol, per litre! J/(l K)
         # see http://www.engineeringtoolbox.com/ethylene-glycol-d_146.html
     fr.append(FlowRate()) # define pulse coeff
-
+    fr2.append(SpeedoMeter(windowsize=10)) # alternatiivne kulumootja vordluseks
 
 class CustomerApp(object):
     def __init__(self): # create instances
         ''' comm, udp. controllerapp jne '''
+        self.di_state = [None, None, None]
+        di_state = [None, None, None]
         self.ca = ControllerApp(self.app, mba = 1, mbi = 0)
         print('ControllerApp instance created')
 
 
-    def app(self, appinstance):
+    def app(self, appinstance, attentioncode = 0): # attentioncode 1 = d, 2=a, 3= d+a
         ''' customer-specific things '''
         # self.ca is also usable here
         global ts, ts_app, el_energylast, pump_old # FIXME to self.var
         pump = [0, 0, 0]  # temporary list
         ##ts = time.time() # ajutine, testimiseks aega vaja
         #flowrate = 0
-        di_state = s.get_value('D1W','dichannels')[0:3] # didebug svc, first 3 inputs are water meters w pulse output
-        #change the pulse input order
+        
         try:
+            di_state = s.get_value('D1W','dichannels')[0:3] # didebug svc, first 3 inputs are water meters w pulse output
+            pump = s.get_value('D1W','dichannels')[3:6] # didebug svc, next 3 inputs are pumps on the same tube with previous water meters
+            
+            #change the pulse input order
             temp = di_state[0]
             di_state[0] = di_state[1]
             di_state[1] = temp
-            pump = s.get_value('D1W','dichannels')[3:6] # didebug svc, next 3 inputs are pumps on the same tube with previous water meters
+            
         except:
-            log.warning('problem with reading D1W data')
+            log.warning('problem with reading D1W data, break out from app, di_state '+str(di_state))
+            return 1
+        
+        
         metercoeff = [10, 10, 10] # litres per pulse
         flowfixed = [1.67, 1.28, 0.172] # l/s - esimesed 2 peaks olema 1.67 ehk 100 l/min
 
         for i in range(3):
-            fr[i].update(pump[i], di_state[i]) ## oli enne komment!  flow update! pulsse ei tohi vahele jatta
+            #fr[i].update(pump[i], di_state[i]) ## oli enne komment!  flow update! pulsse ei tohi vahele jatta
+            if pump[i] == 1:
+                fr2[i].start()
+            else:
+                fr2[i].stop()
+            if di_state[i] != self.di_state[i]:
+                if di_state[i] == 1:
+                    fr2[i].count()
+                self.di_state[i] = di_state[i]
+                
             try:
                 volumecount = int(ac.get_aivalue('V'+str(i+5)+'V',1)[0]) # to check and fix flowrate calc in case of edge missing
                 if volumecount != None:
@@ -70,10 +90,10 @@ class CustomerApp(object):
                     msg = str( fr[i].output(pump[i], di_state[i], volumecount) )
                 else:
                     msg = str( fr[i].output(pump[i], di_state[i]) )
-                log.info('fr update for i '+str(i)+', pump '+str(pump[i])+', di_state '+str(di_state[i])+', flowrate '+msg+', volumecount '+str(volumecount))
+                log.info('pump '+str(pump[i])+', di_state '+str(di_state[i])+', fr flowrate '+msg+', volumecount '+str(volumecount))
             except:
                 log.warning('no valid data yet from svc V'+str(i+5)+'V.1' )
-                traceback.print_exc()
+                #traceback.print_exc()
 
         if ts < ts_app + 5: # continue not too often...
             return 5
@@ -89,10 +109,11 @@ class CustomerApp(object):
             #log.info('app_doall starting i '+str(i)) ###
             try:
                 flowrate2 = fr[i].get_flow() # fr alusel
-                msg = 'pump '+str(pump)+', di_state '+str(di_state)+', flowrate '+str(flowrate2) # +', flowperiod '+str(flowperiod)
+                flowrate3 = 10 * fr2[i].get_speed() # imp/sec * 10 L
+                msg = 'pump '+str(pump)+', di_state '+str(di_state)+', flowrate '+str(flowrate2)+', fr2 flowrate '+str(flowrate3) # +', flowperiod '+str(flowperiod)
                 log.info(msg) ##
                 ac.set_airaw('F'+str(5+i)+'V', 1, int(1000 * flowrate2 * pump[i])) # ml/s
-
+                
                 if flowrate2 != None:
                     ac.set_airaw('PFW', i+1, int(1000 * flowrate2)) # ml/s
                 else:
