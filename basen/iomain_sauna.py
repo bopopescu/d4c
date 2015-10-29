@@ -46,7 +46,8 @@ class CustomerApp(object):
         self.url = 'https://mybasen.pilot.basen.com/_ua/'+self.aid+'/v0.1/data'
 
         self.values2basen = {}
-        self.bs = MyBasenSend() # aid = 'itvilla', uid = b'itvilla', passwd = b'MxPZcbkjdFF5uEF9', path= 'tutorial/testing/test_async'
+        #self.bs = MyBasenSend(aid = 'itvilla', uid = b'itvilla', passwd = b'MxPZcbkjdFF5uEF9', path= 'tutorial/testing/test_async')
+        self.bs = MyBasenSend(aid = 'itvilla', uid = b'itvilla', passwd = b'MxPZcbkjdFF5uEF9', path= 'tutorial/testing/sauna')
         self.channels_setup()
         
         self.ca = ControllerApp(self.app)
@@ -109,16 +110,16 @@ class CustomerApp(object):
             log.info('di changed: '+str(di)+', do: '+str(do)) ##
 
         try:
-            if self.di != None and di != self.di: # only changes
+            if self.di != None and di != self.di and len(di) > 3: # only changes
                 ledsum = 0
-                for i in range(len(di)):
+                for i in range(4):
                     if di[i] != self.di[i] and di[i] == 0: # change, press start
                         led[i].toggle()
                     ledstate = led[i].get_state()
                     if ledstate[0] != self.ledstates[i]:
                         log.info('light '+str(i + 1)+' new state '+str(ledstate[0]))
                         self.ledstates[i] = ledstate[0]
-                        self.values2basen.update({9+i : ledstate[0]}) # for basen
+                    self.values2basen.update({9+i : ledstate[0]}) # LED states for basen
                     d.set_dovalue('LTW', i+1, ledstate[0]) # actual output service, fixed in dchannels.py 13.9.2015
                     ledsum += ledstate[0] << i
                     if ledsum > 0:
@@ -232,7 +233,7 @@ class CustomerApp(object):
             if coord != None and coord[0] != None and coord[1] != None:
                 ac.set_airaw('G1V',1,int(coord[0] * 1000000)) # lat
                 ac.set_airaw('G2V',1,int(coord[1] * 1000000)) # lng
-                self.self.values2basen.update({7 : coord[0]})
+                self.values2basen.update({7 : coord[0]})
                 self.values2basen.update({8 : coord[1]})
             else:
                 log.warning('NO coordinates from GPS device, coord '+str(coord))
