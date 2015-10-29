@@ -110,7 +110,7 @@ class CustomerApp(object):
             log.info('di changed: '+str(di)+', do: '+str(do)) ##
 
         try:
-            if self.di != None and di != self.di and len(di) > 3: # only changes
+            if self.di != None and len(di) > 3: # only changes
                 ledsum = 0
                 for i in range(4):
                     if di[i] != self.di[i] and di[i] == 0: # change, press start
@@ -119,6 +119,7 @@ class CustomerApp(object):
                     if ledstate[0] != self.ledstates[i]:
                         log.info('light '+str(i + 1)+' new state '+str(ledstate[0]))
                         self.ledstates[i] = ledstate[0]
+                    
                     self.values2basen.update({9+i : ledstate[0]}) # LED states for basen
                     d.set_dovalue('LTW', i+1, ledstate[0]) # actual output service, fixed in dchannels.py 13.9.2015
                     ledsum += ledstate[0] << i
@@ -134,7 +135,8 @@ class CustomerApp(object):
                 else:
                     log.info('no change in panelpower '+str(self.panelpower))
 
-                self.di = di
+                if self.di != di:
+                    self.di = di
 
             ## DATA FOR seneca S401 panel rows / via aochannels! panel update ##
             # temp temp temp temp aku jalg uks
