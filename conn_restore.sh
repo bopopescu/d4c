@@ -7,7 +7,7 @@ if /usr/bin/tty -s ; then
     echo "${0} interactive shell, using stdout"
 else
     exec 0</dev/null
-    exec>>/root/d4c/appd.log 2>&1
+    exec>>/root/d4c/conn_restore.log 2>&1
 fi
 ####
 
@@ -78,9 +78,12 @@ conn() {
       #sleep 5
     elif [ `ip addr | grep eth0 | grep -v NO-CARRIER | wc -l` -gt 0 ]; then # ethernet LAN
       echo $0 starting LAN on device eth0... # >> $LOG
-      dhcpcd eth0 # et igal pool ja alati vorku saaks
-      ip addr add 10.0.0.111/24 broadcast 10.0.0.255 dev eth0 # staatiline igaks juhuks arvuti kylgepistmiseks
-
+      if [ "$IP" = "DHCP" ]; then
+        dhcpcd eth0 # et igal pool ja alati vorku saaks
+      else
+        echo static ip $IP
+        ip addr add ${IP}/24 broadcast 10.0.0.255 dev eth0 # staatiline
+      fi
     else
         echo "$0 could not find any device (from wlan0, eth1, eth0) to connect..." # >> $LOG
     fi
@@ -88,6 +91,7 @@ conn() {
 
 
 ########### MAIN #######################
+# first testrun, then conn
 
 failcount=/tmp/conn_restore.failcount  # /tmp ei ole flash
 
@@ -135,7 +139,7 @@ if [ `testrun ping -c1 $PING_IP1` -gt 0 -a `testrun ping -c1 $PING_IP2` -gt 0 ];
         fi
     fi
 else # conn ok on first try
-    echo conn ok
+    (echo -n "conn ok "; date)
     if [ `date +%s` -lt 1430983028 ]; then
         if [ ! -x $CHKTIME ]; then
             echo $0 reporting MISSING $CHKTIME
@@ -145,6 +149,22 @@ else # conn ok on first try
             fi
         fi
     fi
+    
+    if [ ! "$IP" = "DHCP" ]; then
+        if [ `ip a | grep inet | grep $IP | wc -l` -eq 0 ]; then
+            echo adding static ip $IP...
+            ip addr add ${IP}/24 broadcast 10.0.0.255 dev eth0 # staatiline
+        else
+            if /usr/bin/tty -s ; then
+                echo IP already $IP...
+            fi
+        fi
+    else
+        if /usr/bin/tty -s ; then
+            echo IP $IP
+        fi
+    fi
+    
     echo 0 > $failcount
 
     if [ $upp -lt $TOUT ]; then
