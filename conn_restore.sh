@@ -19,6 +19,23 @@ testrun() { # test anything given as parameters for success
 }
 
 
+chkIP() {  # chk if ip in parameter is valid
+    local  ip=$1
+    local  stat=1
+
+    if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        OIFS=$IFS
+        IFS='.'
+        ip=($ip)
+        IFS=$OIFS
+        [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 \
+            && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
+        stat=$?
+    fi
+    return $stat    
+}
+
+
 fullstop() { # stop py application and reset 5V power
     msg="appd.sh: stopping python and cold rebooting via 5V (mba ${1}) reset NOW!"
     echo $msg
@@ -97,6 +114,10 @@ failcount=/tmp/conn_restore.failcount  # /tmp ei ole flash
 
 . /root/d4c/appcfg.sh # setting common variables
 cd $SQLDIR
+if [ -z "$IP" ]; then
+    echo setting missing environment variable IP to empty...
+    IP=""
+fi
 
 if [ ! -f mb.py -o ! -f minimalmodbus.py ]; then
    echo MISSING mb.py or minimalmodbus.py!
@@ -150,18 +171,23 @@ else # conn ok on first try
         fi
     fi
     
-    if [ ! "$IP" = "DHCP" ]; then
-        if [ `ip a | grep inet | grep $IP | wc -l` -eq 0 ]; then
-            echo adding static ip $IP...
-            ip addr add ${IP}/24 broadcast 10.0.0.255 dev eth0 # staatiline
+    if [ ! "$IP" = "" -a ! "$IP" = "DHCP" ]; then
+        if [ `ip a | grep inet | grep " ${IP}/" | wc -l` -eq 0 ]; then
+            #if [ `echo $IP | cut -d"." -f4` -gt 0 ]; then
+            if chkIP $IP; then
+                echo adding static ip $IP...
+                ip addr add ${IP}/24 broadcast 10.0.0.255 dev eth0 # staatiline
+            else
+                echo INVALID static ip $IP in configuration... 
+            fi
         else
             if /usr/bin/tty -s ; then
                 echo IP already $IP...
             fi
         fi
-    else
+    else # dhcp or empty
         if /usr/bin/tty -s ; then
-            echo IP $IP
+            echo assumed dhcp as IP in config is $IP
         fi
     fi
     
