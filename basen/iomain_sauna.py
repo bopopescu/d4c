@@ -1,7 +1,6 @@
-APVER='ioloop app basen 18.10.2015' # miks sellega vahel udp saatmine ei hakka toole? main_sauna on parem selles osas.
-# aga see on veidi kiirem, kui main_sauna
-
 ''' highest level script for basen sauna app '''
+APVER='ioloop app basen 08.11.2015' 
+
 
 import os, sys, time, traceback
 
@@ -34,7 +33,7 @@ ts = time.time()
 
 led = [] # lighting instances
 for i in range(4): # button triggers
-    led.append(StateKeeper(off_tout = 3600, on_tout = 0))
+    led.append(StateKeeper(off_tout = 14400, on_tout = 0)) # 4 h timeout
 
 class CustomerApp(object):
     def __init__(self): # create instances
@@ -90,7 +89,7 @@ class CustomerApp(object):
         self.bs.set_channels(channels2basen)
 
 
-    def app(self, appinstance):
+    def app(self, appinstance, attentioncode = 0):
         ''' customer-specific things, like lighting control
         # switch on panelpower if any of led strips is on
         # switch off panelpower if all led strips are off
@@ -117,7 +116,7 @@ class CustomerApp(object):
                         led[i].toggle()
                     ledstate = led[i].get_state()
                     if ledstate[0] != self.ledstates[i]:
-                        log.info('light '+str(i + 1)+' new state '+str(ledstate[0]))
+                        log.info('light '+str(i + 1)+' new state '+str(ledstate[0])+' at '+str(int(self.ts))+' due to di['+str(i)+'] change from '+str(self.di[i])+', to '+str(di[i]))
                         self.ledstates[i] = ledstate[0]
                     
                     self.values2basen.update({9+i : ledstate[0]}) # LED states for basen

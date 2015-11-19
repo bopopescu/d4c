@@ -75,12 +75,19 @@ class CustomerApp(object):
         for i in range(3):
             #fr[i].update(pump[i], di_state[i]) ## oli enne komment!  flow update! pulsse ei tohi vahele jatta
             if pump[i] == 1:
-                fr2[i].start()
+                if not fr2[i].get_state():
+                    fr2[i].start()
+                    log.info('pump '+str(i)+' started')
             else:
-                fr2[i].stop()
-            if di_state[i] != self.di_state[i]:
-                if di_state[i] == 1:
+                if fr2[i].get_state():
+                    fr2[i].stop()
+                    log.info('pump '+str(i)+' stopped')
+            if di_state[i] != self.di_state[i]: # change
+                if pump[i] == 1:
                     fr2[i].count()
+                    log.info('pump '+str(i)+' related volume increase detected while pump active')
+                else:
+                    log.warning('pump '+str(i)+' related volume increase detected DURING STOPPED PUMP!')
                 self.di_state[i] = di_state[i]
                 
             try:
@@ -91,13 +98,13 @@ class CustomerApp(object):
                     msg = str( fr[i].output(pump[i], di_state[i], volumecount) )
                 else:
                     msg = str( fr[i].output(pump[i], di_state[i]) )
-                log.info('pump '+str(pump[i])+', di_state '+str(di_state[i])+', fr flowrate '+msg+', volumecount '+str(volumecount))
+                log.debug('pump '+str(pump[i])+', di_state '+str(di_state[i])+', fr flowrate '+msg+', volumecount '+str(volumecount))
             except:
                 log.warning('no valid data yet from svc V'+str(i+5)+'V.1' )
                 #traceback.print_exc()
 
-        if ts < ts_app + 5: # continue not too often...
-            return 5
+        ##if ts < ts_app + 5: # continue not too often...
+        ##    return 5
 
         # valistemperatuur avg 2 anduri alusel
         temps = ac.get_aivalues('T0W') # members 2 and 3 are sensor values
@@ -108,27 +115,34 @@ class CustomerApp(object):
 
         for i in range(3):
             #log.info('app_doall starting i '+str(i)) ###
+            flowrate2 = None
             try:
-                flowrate2 = fr[i].get_flow() # fr alusel
-                flowrate3 = 10 * fr2[i].get_speed() # imp/sec * 10 L
-                msg = 'pump '+str(pump)+', di_state '+str(di_state)+', flowrate '+str(flowrate2)+', fr2 flowrate '+str(flowrate3) # +', flowperiod '+str(flowperiod)
-                log.info(msg) ##
-                ac.set_airaw('F'+str(5+i)+'V', 1, int(1000 * flowrate2 * pump[i])) # ml/s
-                
-                if flowrate2 != None:
+                ##flowrate2 = fr[i].get_flow() # fr alusel - ajab jama!
+                tmp = fr2[i].get_speed()
+                if tmp: # not None
+                    flowrate2 = 10 * fr2[i].get_speed() # imp/sec * 10 L = l/s
+                    msg = 'pump '+str(i)+' runstate '+str(pump[i])+', di_state '+str(di_state[i])+', flowrate '+str(flowrate2) #+', fr2 flowrate '+str(flowrate3) #
+                    log.info(msg) ##
+                    ac.set_airaw('F'+str(5+i)+'V', 1, int(1000 * flowrate2 * pump[i])) # ml/s
+                    he[i].set_flowrate(flowrate2) # tegelik flowrate arvesse
+                else:
+                    msg = 'pump '+str(i)+' runstate '+str(pump[i])+', speed not yet available'
+                    log.warning(msg)
+                    if pump[i] == 0:
+                        ac.set_airaw('F'+str(5+i)+'V', 1, 0) # pump stopped, so is flow
+                        
+                if flowrate2 != None and pump[i] == 1:
                     ac.set_airaw('PFW', i+1, int(1000 * flowrate2)) # ml/s
                 else:
-                    ac.set_airaw('PFW', i+1, 0) # asendame nulliga
+                    ac.set_airaw('PFW', i+1, 0) # asendame nulliga # kas on vaja?? hr tulemusele ei moju.
 
                 if he[i]:
-                    #he[i].set_flowrate(flowfixed[i]) ## ajutine  = 5 imp 5 min jooksul kui 10 imp/l, 100 l /min. lyhikesed tootsyklid..
-                    he[i].set_flowrate(flowrate2) # tegelik flowrate arvesse
                     if i == 0: # sp1
                         Ton = s.get_value('T51W','aicochannels')[0]
                         Tret = s.get_value('T51W','aicochannels')[1]
                         log.debug('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                         hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
-                        log.info('i '+str(i)+', Tdiff '+str(int(Ton-Tret)/10)+', di_pump '+str(pump[i])+', he[0].output '+str(hrout))
+                        log.info('i '+str(i)+', Tdiff '+str(int(Ton-Tret)/10)+', di_pump='+str(pump[i])+', he[0].output '+str(hrout))
                         hrpwr = hrout[0]
                         if hrpwr == None or pump[i] == 0: # he.output is sometimes >0 during di_pump == 1???
                             hrpwr = 0
@@ -141,7 +155,7 @@ class CustomerApp(object):
                         log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                         hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # params di_pump, Ton, Tret; returns tuple of W, J, s
                         hrpwr = hrout[0]
-                        log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he[1].output '+str(hrout))
+                        log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump='+str(pump[i])+', he[1].output '+str(hrout))
                         if hrpwr == None or pump[i] == 0:
                             hrpwr = 0
                         if ac.set_airaw('H2PW', 1, int(hrpwr)) != 0: # instant heat pump POWER W
@@ -152,7 +166,7 @@ class CustomerApp(object):
                         log.info('i '+str(i)+' Ton '+str(Ton)+', Tret '+str(Tret)+', pump '+str(pump[i]))
                         hrout = he[i].output(pump[i], Ton/10.0, Tret/10.0) # solar to SPV
                         hrpwr = hrout[0]
-                        log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump '+str(pump[i])+', he[2].output '+str(hrout))
+                        log.info('i '+str(i)+', Tdiff '+str((Ton-Tret)/10)+', di_pump='+str(pump[i])+', he[2].output '+str(hrout))
                         if hrpwr == None or pump[i] == 0:
                             hrpwr  = 0
                         if ac.set_airaw('SPV', 1, int(hrpwr)) != 0: # instant heat solar power

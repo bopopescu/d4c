@@ -1,8 +1,6 @@
 APVER='monitor/iomain_monitor 21.10.2015'
 ''' highest script for an application '''
 
-## FIXME - kontrolleri io mba voiks olla muudetav, vaikimisi 1. vajaks seda self.ca
-
 import os, sys, time, traceback
 from droidcontroller.uniscada import * # UDPchannel, TCPchannel
 from droidcontroller.controller_app import * # arranges modbus and server comms
@@ -19,7 +17,7 @@ class CustomerApp(object):
         self.ca = ControllerApp(self.app, mba = 1, mbi = 0)
         print('ControllerApp instance created')
         
-    def app(self, appinstance):
+    def app(self, appinstance, attentioncode = 0):
         ''' customer-specific things '''
         print('app here')
         res = 0
@@ -31,4 +29,6 @@ udp.setAPVER(APVER) # app version to be sent to server on connectivity up
 
 if __name__ == "__main__":
     tornado.ioloop.IOLoop.instance().start() # start your loop, event-based from now on
+    
+# testi cua.ca.commtest()
 
