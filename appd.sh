@@ -28,6 +28,13 @@ APPCFG=/root/d4c/appcfg.sh
 #TOUT=1000 # timeout to power cut or reboot in case of no connectivity
 #SQLDIR=/root/d4c
 ########################
+
+#chk if cron is running and enable if not
+if [ `systemctl status cronie | tail -1 | grep inactive | wc -l` -gt 0 ]; then
+  echo enabling starting cronie...
+  systemctl start cronie; systemctl enable cronie
+fi
+
 rm -f /tmp/openvpn.lock
 
 cd /root/d4c
