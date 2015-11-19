@@ -1,5 +1,6 @@
 #!/usr/bin/sh
 #vpn will be closed after 1000 s of inactivity, use $TOUT=0 not to be closed
+# route ja inactivity korraga on probleemne!
 
 #####
 if /usr/bin/tty -s ; then
@@ -42,11 +43,17 @@ fi
 
 #if [ `/usr/local/bin/ps1 openvpn daemon | wc -l` -gt 0 ]; then
 if [ -f /tmp/openvpn.lock ]; then
-    echo "${0}: vpn already started..." 
-    exit 0
-else
-    echo $$ > /tmp/openvpn.lock
+    sleep 1
+    if [ `/usr/local/bin/ps1 openvpn daemon | wc -l` -gt 0 ]; then
+        echo "${0}: vpn already started..." 
+        exit 0
+    else # no vpn process
+        echo "vpn lock file exists in /tmp, but no openvpn process found, deleting old lock..."
+        rm -f /tmp/openvpn.lock
+    fi
 fi
+
+echo $$ > /tmp/openvpn.lock
 
 defgw=`ip route | grep default | cut -d" " -f3`  # igaks juhuks, vahel ei teki korralikku yhendust...
 #alati tekitab uue logi
