@@ -127,8 +127,8 @@ class CustomerApp(object):
             #print('tempvarsH',tempvarsH) # debug
             
             ac.set_aivalues('PWW', values = pwm_values)
-            ac.set_aivalues('LGGW', values = [int(10 * tempvarsG['outP']), int(1000 * tempvarsG['outI']), tempvarsG['outD'] ]) # PID for loop 0
-            ac.set_aivalues('LGHW', values = [int(10 * tempvarsH['outP']), int(1000 * tempvarsH['outI']), tempvarsH['outD'] ]) # PID for loop 1
+            ac.set_aivalues('LGGW', values = [int(10 * tempvarsG['outP']), int(1000 * tempvarsG['outI']), int(tempvarsG['outD']) ]) # PID for loop 0
+            ac.set_aivalues('LGHW', values = [int(10 * tempvarsH['outP']), int(1000 * tempvarsH['outI']), int(tempvarsH['outD']) ]) # PID for loop 1
             ac.set_aivalues('NGIW', values = [tempvarsG['extnoint'], tempvarsH['extnoint'] ]) # ext int stop
             
             
@@ -152,29 +152,29 @@ class CustomerApp(object):
             'extnoint' : self.extnoint, \
             'name': self.name }
             '''
-            if tempvarsG['outMax'] != TGW[3]:
+            if int(tempvarsG['outMax']) != TGW[3]:
                 self.pid_gas[0].setMax(TGW[3])
                 log.warning('pid_gas[0] hilim changed to '+str(TGW[3]))
-            if tempvarsG['Kp'] != KGPW[0]:
+            if int(10 * tempvarsG['Kp']) != KGPW[0]:
                 self.pid_gas[0].setKp(KGPW[0] / 10.0)
                 log.warning('pid_gas[0] kP changed!')
-            if tempvarsG['Ki'] != KGIW[0]:
+            if int(1000 * tempvarsG['Ki']) != KGIW[0]:
                 self.pid_gas[0].setKi(KGIW[0] / 1000.0)
                 log.warning('pid_gas[0] kI changed!')
-            if tempvarsG['Kd'] != KGDW[0]:
+            if int(tempvarsG['Kd']) != KGDW[0]:
                 self.pid_gas[0].setKd(KGDW[0])
                 log.warning('pid_gas[0] kD changed!')
                 
-            if tempvarsH['outMax'] != THW[3]:
+            if int(tempvarsH['outMax']) != THW[3]:
                 self.pid_gas[1].setMax(THW[3])
                 log.warning('pid_gas[1] hilim changed to '+str(THW[3]))
-            if tempvarsH['Kp'] != KGPW[1]:
+            if int(10 * tempvarsH['Kp']) != KGPW[1]:
                 self.pid_gas[1].setKp(KGPW[1] / 10.0)
                 log.warning('pid_gas[1] kP changed!')
-            if tempvarsH['Ki'] != KGIW[1]:
+            if int(1000 * tempvarsH['Ki']) != KGIW[1]:
                 self.pid_gas[1].setKi(KGIW[1] / 1000.0)
                 log.warning('pid_gas[1] kI changed!')
-            if tempvarsH['Kd'] != KGDW[1]:
+            if int(tempvarsH['Kd']) != KGDW[1]:
                 self.pid_gas[1].setKd(KGDW[1])
                 log.warning('pid_gas[1] kD changed!')
             
@@ -192,8 +192,6 @@ cua.ca.spm.start()
 cua.ca.di_reader()
 cua.ca.ai_reader()
 cua.mbus_reader()
-log.info('starting ioloop in 5 s')
-time.sleep(5)
 
 if __name__ == "__main__":
     tornado.ioloop.IOLoop.instance().start() # start your loop, event-based from now on
