@@ -168,15 +168,15 @@ class CustomerApp(object):
             if tempvarsH['outMax'] != THW[3]:
                 self.pid_gas[1].setMax(THW[3])
                 log.warning('pid_gas[1] hilim changed to '+str(THW[3]))
-            if tempvarsH.get['Kp'] != KHPW[1]:
-                self.pid_gas[1].setKp(KHPW[0] / 10.0)
-                log.warning('pid_gas[0] kP changed!')
-            if tempvarsH['Ki'] != KHIW[1]:
-                self.pid_gas[1].setKi(KHIW[0] / 1000.0)
-                log.warning('pid_gas[0] kI changed!')
-            if tempvarsH['Kd'] != KHDW[1]:
-                self.pid_gas[1].setKd(KHDW[0])
-                log.warning('pid_gas[0] kD changed!')
+            if tempvarsH['Kp'] != KGPW[1]:
+                self.pid_gas[1].setKp(KGPW[1] / 10.0)
+                log.warning('pid_gas[1] kP changed!')
+            if tempvarsH['Ki'] != KGIW[1]:
+                self.pid_gas[1].setKi(KGIW[1] / 1000.0)
+                log.warning('pid_gas[1] kI changed!')
+            if tempvarsH['Kd'] != KGDW[1]:
+                self.pid_gas[1].setKd(KGDW[1])
+                log.warning('pid_gas[1] kD changed!')
             
 
             log.info('gas_heater done, new pwm values '+str(pwm_values))
