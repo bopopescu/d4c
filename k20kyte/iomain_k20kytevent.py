@@ -123,18 +123,6 @@ class CustomerApp(object):
             
             tempvarsG = self.pid_gas[0].getvars() # dict
             tempvarsH = self.pid_gas[1].getvars() # dict
-            #print('tempvarsG',tempvarsG) # debug
-            #print('tempvarsH',tempvarsH) # debug
-            
-            ac.set_aivalues('PWW', values = pwm_values)
-            ac.set_aivalues('LGGW', values = [int(10 * tempvarsG['outP']), int(1000 * tempvarsG['outI']), int(tempvarsG['outD']) ]) # PID for loop 0
-            ac.set_aivalues('LGHW', values = [int(10 * tempvarsH['outP']), int(1000 * tempvarsH['outI']), int(tempvarsH['outD']) ]) # PID for loop 1
-            ac.set_aivalues('NGIW', values = [tempvarsG['extnoint'], tempvarsH['extnoint'] ]) # ext int stop
-            
-            
-            ac.set_aivalues('KGPW', values = [int(10 * tempvarsG['Kp']), int(10 * tempvarsH['Kp']) ]) # kP for loops 0, 1
-            ac.set_aivalues('KGIW', values = [int(1000 * tempvarsG['Ki']), int(1000 * tempvarsH['Ki']) ]) # kI for loops 0, 1
-            ac.set_aivalues('KGDW', values = [int(tempvarsG['Kd']), int(tempvarsH['Kd']) ]) # kD for loops 0, 1
             ''' 
             {'Kp' : self.Kp, \
             'Ki' : self.Ki, \
@@ -152,6 +140,14 @@ class CustomerApp(object):
             'extnoint' : self.extnoint, \
             'name': self.name }
             '''
+            #print('tempvarsG',tempvarsG) # debug
+            #print('tempvarsH',tempvarsH) # debug
+            
+            ac.set_aivalues('PWW', values = pwm_values)
+            ac.set_aivalues('LGGW', values = [int(10 * tempvarsG['outP']), int(1000 * tempvarsG['outI']), int(tempvarsG['outD']) ]) # PID for loop 0
+            ac.set_aivalues('LGHW', values = [int(10 * tempvarsH['outP']), int(1000 * tempvarsH['outI']), int(tempvarsH['outD']) ]) # PID for loop 1
+            ac.set_aivalues('NGIW', values = [tempvarsG['extnoint'], tempvarsH['extnoint'] ]) # ext int stop
+            
             if int(tempvarsG['outMax']) != TGW[3]:
                 self.pid_gas[0].setMax(TGW[3])
                 log.warning('pid_gas[0] hilim changed to '+str(TGW[3]))
