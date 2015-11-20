@@ -156,24 +156,24 @@ class CustomerApp(object):
             if tempvarsG[kP] != KGPW[0]:
                 self.pid_gas[0].setKp(KGPW[0] / 10.0)
                 log.warning('pid_gas[0] kP changed!')
-            if tempvarsG[kI] != KGIW[0]:
+            if tempvarsG[kI] != KGIW[1]:
                 self.pid_gas[0].setKi(KGIW[0] / 1000.0)
                 log.warning('pid_gas[0] kI changed!')
-            if tempvarsG[kD] != KGDW[0]:
+            if tempvarsG[kD] != KGDW[2]:
                 self.pid_gas[0].setKd(KGDW[0])
                 log.warning('pid_gas[0] kD changed!')
                 
             if tempvarsH[outMax] != THW[3]:
                 self.pid_gas[1].setMax(THW[3])
                 log.warning('pid_gas[1] hilim changed to '+str(THW[3]))
-            if tempvarsH[kP] != KHPW[0]:
-                self.pid_gas[0].setKp(KHPW[0] / 10.0)
+            if tempvarsH.get[kP] != KHPW[0]:
+                self.pid_gas[1].setKp(KHPW[0] / 10.0)
                 log.warning('pid_gas[0] kP changed!')
-            if tempvarsH[kI] != KHIW[0]:
-                self.pid_gas[0].setKi(KHIW[0] / 1000.0)
+            if tempvarsH[kI] != KHIW[1]:
+                self.pid_gas[1].setKi(KHIW[0] / 1000.0)
                 log.warning('pid_gas[0] kI changed!')
-            if tempvarsH[kD] != KHDW[0]:
-                self.pid_gas[0].setKd(KHDW[0])
+            if tempvarsH[kD] != KHDW[2]:
+                self.pid_gas[1].setKd(KHDW[0])
                 log.warning('pid_gas[0] kD changed!')
             
 
