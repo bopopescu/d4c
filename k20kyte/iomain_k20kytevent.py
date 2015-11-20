@@ -123,16 +123,18 @@ class CustomerApp(object):
             
             tempvarsG = self.pid_gas[0].getvars() # dict
             tempvarsH = self.pid_gas[1].getvars() # dict
+            #print('tempvarsG',tempvarsG) # debug
+            #print('tempvarsH',tempvarsH) # debug
             
             ac.set_aivalues('PWW', values = pwm_values)
-            ac.set_aivalues('LGGW', values = [int(10 * tempvarsG[outP]), int(1000 * tempvarsG[outI]), tempvarsG[outD] ]) # PID for loop 0
-            ac.set_aivalues('LGHW', values = [int(10 * tempvarsH[outP]), int(1000 * tempvarsH[outI]), tempvarsH[outD] ]) # PID for loop 1
-            ac.set_aivalues('NGIW', values = [tempvarsG[extnoint], tempvarsH[extnoint] ]) # ext int stop
+            ac.set_aivalues('LGGW', values = [int(10 * tempvarsG['outP']), int(1000 * tempvarsG['outI']), tempvarsG['outD'] ]) # PID for loop 0
+            ac.set_aivalues('LGHW', values = [int(10 * tempvarsH['outP']), int(1000 * tempvarsH['outI']), tempvarsH['outD'] ]) # PID for loop 1
+            ac.set_aivalues('NGIW', values = [tempvarsG['extnoint'], tempvarsH['extnoint'] ]) # ext int stop
             
             
-            ac.set_aivalues('KGPW', values = [int(10 * tempvarsG[Kp]), int(10 * tempvarsH[Kp]) ]) # kP for loops 0, 1
-            ac.set_aivalues('KGIW', values = [int(1000 * tempvarsG[Ki]), int(1000 * tempvarsH[Ki]) ]) # kI for loops 0, 1
-            ac.set_aivalues('KGDW', values = [int(tempvarsG[Kd]), int(tempvarsH[Kd]) ]) # kD for loops 0, 1
+            ac.set_aivalues('KGPW', values = [int(10 * tempvarsG['Kp']), int(10 * tempvarsH['Kp']) ]) # kP for loops 0, 1
+            ac.set_aivalues('KGIW', values = [int(1000 * tempvarsG['Ki']), int(1000 * tempvarsH['Ki']) ]) # kI for loops 0, 1
+            ac.set_aivalues('KGDW', values = [int(tempvarsG['Kd']), int(tempvarsH['Kd']) ]) # kD for loops 0, 1
             ''' 
             {'Kp' : self.Kp, \
             'Ki' : self.Ki, \
@@ -150,29 +152,29 @@ class CustomerApp(object):
             'extnoint' : self.extnoint, \
             'name': self.name }
             '''
-            if tempvarsG[outMax] != TGW[3]:
+            if tempvarsG['outMax'] != TGW[3]:
                 self.pid_gas[0].setMax(TGW[3])
                 log.warning('pid_gas[0] hilim changed to '+str(TGW[3]))
-            if tempvarsG[kP] != KGPW[0]:
+            if tempvarsG['Kp'] != KGPW[0]:
                 self.pid_gas[0].setKp(KGPW[0] / 10.0)
                 log.warning('pid_gas[0] kP changed!')
-            if tempvarsG[kI] != KGIW[1]:
+            if tempvarsG['Ki'] != KGIW[0]:
                 self.pid_gas[0].setKi(KGIW[0] / 1000.0)
                 log.warning('pid_gas[0] kI changed!')
-            if tempvarsG[kD] != KGDW[2]:
+            if tempvarsG['Kd'] != KGDW[0]:
                 self.pid_gas[0].setKd(KGDW[0])
                 log.warning('pid_gas[0] kD changed!')
                 
-            if tempvarsH[outMax] != THW[3]:
+            if tempvarsH['outMax'] != THW[3]:
                 self.pid_gas[1].setMax(THW[3])
                 log.warning('pid_gas[1] hilim changed to '+str(THW[3]))
-            if tempvarsH.get[kP] != KHPW[0]:
+            if tempvarsH.get['Kp'] != KHPW[1]:
                 self.pid_gas[1].setKp(KHPW[0] / 10.0)
                 log.warning('pid_gas[0] kP changed!')
-            if tempvarsH[kI] != KHIW[1]:
+            if tempvarsH['Ki'] != KHIW[1]:
                 self.pid_gas[1].setKi(KHIW[0] / 1000.0)
                 log.warning('pid_gas[0] kI changed!')
-            if tempvarsH[kD] != KHDW[2]:
+            if tempvarsH['Kd'] != KHDW[1]:
                 self.pid_gas[1].setKd(KHDW[0])
                 log.warning('pid_gas[0] kD changed!')
             
