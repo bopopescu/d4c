@@ -119,11 +119,11 @@ class CustomerApp(object):
             ac.set_aivalues('PWW', values = pwm_values)
             
             if self.pid_gas[0].getMax() != TGW[3]:
-                self.pid_gas[0].setMax(rad_hilim)
+                self.pid_gas[0].setMax(TGW[3])
                 log.warning('pid_gas[0] hilim changed to '+str(TGW[3]))
 
             if self.pid_gas[1].getMax() != THW[3]:
-                self.pid_gas[1].setMax(rad_hilim)
+                self.pid_gas[1].setMax(THW[3])
                 log.warning('pid_gas[1] hilim changed to '+str(THW[3]))
 
             log.info('gas_heater done, new pwm values '+str(pwm_values))
