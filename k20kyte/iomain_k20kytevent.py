@@ -153,8 +153,8 @@ class CustomerApp(object):
             #print('tempvarsH',tempvarsH) # debug
             
             ac.set_aivalues('PWW', values = pwm_values)
-            ac.set_aivalues('LGGW', values=[self.val2int(tempvarsG[error],10), self.val2int(tempvarsG['outP'],10), self.val2int(tempvarsG['outI'],10), self.val2int(tempvarsG['outD'],10) ]) # out comp x 10 for loop 0
-            ac.set_aivalues('LGHW', values=[self.val2int(tempvarsG[error],10), self.val2int(tempvarsH['outP'],10), self.val2int(tempvarsH['outI'],10), self.val2int(tempvarsH['outD'],10) ]) # PID comp for loop 1
+            ac.set_aivalues('LGGW', values=[self.val2int(tempvarsG['error'],10), self.val2int(tempvarsG['outP'],10), self.val2int(tempvarsG['outI'],10), self.val2int(tempvarsG['outD'],10) ]) # out comp x 10 for loop 0
+            ac.set_aivalues('LGHW', values=[self.val2int(tempvarsH['error'],10), self.val2int(tempvarsH['outP'],10), self.val2int(tempvarsH['outI'],10), self.val2int(tempvarsH['outD'],10) ]) # PID comp for loop 1
             ac.set_aivalues('NGIW', values=[tempvarsG['extnoint'], tempvarsH['extnoint'] ]) # ext int stop
             
             if self.val2int(tempvarsG['outMax']) != TGW[3]:
