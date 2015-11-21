@@ -109,10 +109,10 @@ class CustomerApp(object):
         
     def val2int(self, value, coeff = 1):
         ''' Multiply with coeff, return rounded integer '''
-        if value and coeff:
+        if value != None and coeff != None:
             return int(round(coeff * value, 0))
         else:
-            log.warning('INVALID parameters! value or coeff None?')
+            log.warning('INVALID parameters! value '+str(value)+' or coeff '+str(coeff)+' must be None?')
             return None
             
     
@@ -149,8 +149,8 @@ class CustomerApp(object):
             'extnoint' : self.extnoint, \
             'name': self.name }
             '''
-            #print('tempvarsG',tempvarsG) # debug
-            #print('tempvarsH',tempvarsH) # debug
+            print('tempvarsG',tempvarsG) # debug
+            print('tempvarsH',tempvarsH) # debug
             
             ac.set_aivalues('PWW', values = pwm_values)
             ac.set_aivalues('LGGW', values=[self.val2int(tempvarsG['error'],10), self.val2int(tempvarsG['outP'],10), self.val2int(tempvarsG['outI'],10), self.val2int(tempvarsG['outD'],10) ]) # out comp x 10 for loop 0
@@ -168,7 +168,7 @@ class CustomerApp(object):
                 log.warning('pid_gas[0] kI changed!')
             if self.val2int(tempvarsG['Kd']) != KGDW[0]:
                 self.pid_gas[0].setKd(KGDW[0])
-                log.warning('pid_gas[0] kD changed!')
+                log.warning('pid_gas[0] kD changed to '+str(KGDW[0]))
                 
             if self.val2int(tempvarsH['outMax']) != THW[3]:
                 self.pid_gas[1].setMax(THW[3])
@@ -181,7 +181,7 @@ class CustomerApp(object):
                 log.warning('pid_gas[1] kI changed!')
             if self.val2int(tempvarsH['Kd']) != KGDW[1]:
                 self.pid_gas[1].setKd(KGDW[1])
-                log.warning('pid_gas[1] kD changed!')
+                log.warning('pid_gas[1] kD changed to '+str(KGDW[1]))
             
 
             log.info('gas_heater done, new pwm values '+str(pwm_values))
