@@ -76,7 +76,7 @@ class CustomerApp(object):
             self.mbus.read()
             volume = self.mbus.get_volume()
             log.info('got value from water meter: '+str(volume))
-            ac.set_aivalue('WVCV', 1, int(volume)) # to report only, in L
+            ac.set_aivalue('WVCV', 1, self.val2int(volume)) # to report only, in L
             #return volume 
         except:
             log.warning('mbus water meter reading or aicochannels register writing FAILED!')
@@ -107,6 +107,15 @@ class CustomerApp(object):
         #    udp.send(['H'+str(i+1)+'CS',1,'H'+str(i+1)+'CW','?']) # cumulative heat energy restoration via buffer
 
         
+    def val2int(self, value, coeff = 1):
+        ''' Multiply with coeff, return rounded integer '''
+        if value and coeff:
+            return int(round(coeff * value, 0))
+        else:
+            log.warning('INVALID parameters! value or coeff None?')
+            return None
+            
+    
     def gas_heater(self):
         ''' CONTROLS HEATING WATER TEMPERATURE FROM GAS HEATER AND MIX VALVE TO FLOOR '''
         try:
@@ -117,7 +126,7 @@ class CustomerApp(object):
             KGIW = ac.get_aivalues('KGIW') # kI for loops G, H
             KGDW = ac.get_aivalues('KGDW') # kD for loops G, H
             
-            pwm_values = [ int(self.pid_gas[0].output(TGW[2],TGW[0])), int(self.pid_gas[1].output(THW[2],THW[0])) ]
+            pwm_values = [ self.val2int(self.pid_gas[0].output(TGW[2],TGW[0])), self.val2int(self.pid_gas[1].output(THW[2],THW[0])) ]
             self.pwm_gas[0].set_value(13, pwm_values[0]) # pwm to heater knob, do bit 13
             self.pwm_gas[1].set_value(14, pwm_values[1]) # pwm to 3way valve, do bit 14
             
@@ -144,33 +153,33 @@ class CustomerApp(object):
             #print('tempvarsH',tempvarsH) # debug
             
             ac.set_aivalues('PWW', values = pwm_values)
-            ac.set_aivalues('LGGW', values = [int(10 * tempvarsG['outP']), int(1000 * tempvarsG['outI']), int(tempvarsG['outD']) ]) # PID for loop 0
-            ac.set_aivalues('LGHW', values = [int(10 * tempvarsH['outP']), int(1000 * tempvarsH['outI']), int(tempvarsH['outD']) ]) # PID for loop 1
-            ac.set_aivalues('NGIW', values = [tempvarsG['extnoint'], tempvarsH['extnoint'] ]) # ext int stop
+            ac.set_aivalues('LGGW', values=[self.val2int(tempvarsG[error],10), self.val2int(tempvarsG['outP'],10), self.val2int(tempvarsG['outI'],10), self.val2int(tempvarsG['outD'],10) ]) # out comp x 10 for loop 0
+            ac.set_aivalues('LGHW', values=[self.val2int(tempvarsG[error],10), self.val2int(tempvarsH['outP'],10), self.val2int(tempvarsH['outI'],10), self.val2int(tempvarsH['outD'],10) ]) # PID comp for loop 1
+            ac.set_aivalues('NGIW', values=[tempvarsG['extnoint'], tempvarsH['extnoint'] ]) # ext int stop
             
-            if int(tempvarsG['outMax']) != TGW[3]:
+            if self.val2int(tempvarsG['outMax']) != TGW[3]:
                 self.pid_gas[0].setMax(TGW[3])
                 log.warning('pid_gas[0] hilim changed to '+str(TGW[3]))
-            if int(10 * tempvarsG['Kp']) != KGPW[0]:
+            if self.val2int(tempvarsG['Kp'],10) != KGPW[0]:
                 self.pid_gas[0].setKp(KGPW[0] / 10.0)
                 log.warning('pid_gas[0] kP changed!')
-            if int(1000 * tempvarsG['Ki']) != KGIW[0]:
+            if self.val2int(tempvarsG['Ki'],1000) != KGIW[0]:
                 self.pid_gas[0].setKi(KGIW[0] / 1000.0)
                 log.warning('pid_gas[0] kI changed!')
-            if int(tempvarsG['Kd']) != KGDW[0]:
+            if self.val2int(tempvarsG['Kd']) != KGDW[0]:
                 self.pid_gas[0].setKd(KGDW[0])
                 log.warning('pid_gas[0] kD changed!')
                 
-            if int(tempvarsH['outMax']) != THW[3]:
+            if self.val2int(tempvarsH['outMax']) != THW[3]:
                 self.pid_gas[1].setMax(THW[3])
                 log.warning('pid_gas[1] hilim changed to '+str(THW[3]))
-            if int(10 * tempvarsH['Kp']) != KGPW[1]:
+            if self.val2int(tempvarsH['Kp'], 10) != KGPW[1]:
                 self.pid_gas[1].setKp(KGPW[1] / 10.0)
                 log.warning('pid_gas[1] kP changed!')
-            if int(1000 * tempvarsH['Ki']) != KGIW[1]:
+            if self.val2int(tempvarsH['Ki'], 1000) != KGIW[1]:
                 self.pid_gas[1].setKi(KGIW[1] / 1000.0)
                 log.warning('pid_gas[1] kI changed!')
-            if int(tempvarsH['Kd']) != KGDW[1]:
+            if self.val2int(tempvarsH['Kd']) != KGDW[1]:
                 self.pid_gas[1].setKd(KGDW[1])
                 log.warning('pid_gas[1] kD changed!')
             
@@ -188,6 +197,8 @@ cua.ca.spm.start()
 cua.ca.di_reader()
 cua.ca.ai_reader()
 cua.mbus_reader()
+log.info('use cua.method() to test methods in this main script or cua.ca.method() in the controller_app')
+time.sleep(2)
 
 if __name__ == "__main__":
     tornado.ioloop.IOLoop.instance().start() # start your loop, event-based from now on
