@@ -1,5 +1,5 @@
 ''' highest level script for koogu20 heating & ventilation '''
-APVER='ioloop app k20kytevent 15.11.2015'
+APVER='ioloop app k20kytevent 22.11.2015'
 
 
 import os, sys, time, traceback
@@ -120,13 +120,17 @@ class CustomerApp(object):
         ''' CONTROLS HEATING WATER TEMPERATURE FROM GAS HEATER AND MIX VALVE TO FLOOR '''
         try:
             # self.TGW, self.THW not used so far
+            GSW = (d.get_divalues('GSW')
+            noint = -(GSW[0] ^ 1) # inversion. no down integration during non-heating
+            if noint != 0:
+                log.info('down int forbidden for gasheater loops based on GSW '+str(GSW)+', noint '+str(noint))
             TGW = ac.get_aivalues('TGW') # water from gasheater - actual on, actual ret, setpoint, hilim
             THW = ac.get_aivalues('THW') # water to floors -  actual on, actual ret, setpoint, hilim
             KGPW = ac.get_aivalues('KGPW') # kP for loops G, H
             KGIW = ac.get_aivalues('KGIW') # kI for loops G, H
             KGDW = ac.get_aivalues('KGDW') # kD for loops G, H
             
-            pwm_values = [ self.val2int(self.pid_gas[0].output(TGW[2],TGW[0])), self.val2int(self.pid_gas[1].output(THW[2],THW[0])) ]
+            pwm_values = [ self.val2int(self.pid_gas[0].output(TGW[2],TGW[0],noint=noint)), self.val2int(self.pid_gas[1].output(THW[2],THW[0], noint=noint)) ]
             self.pwm_gas[0].set_value(13, pwm_values[0]) # pwm to heater knob, do bit 13
             self.pwm_gas[1].set_value(14, pwm_values[1]) # pwm to 3way valve, do bit 14
             
