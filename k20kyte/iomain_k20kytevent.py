@@ -188,7 +188,7 @@ class CustomerApp(object):
                 log.warning('pid_gas[1] kD changed to '+str(KGDW[1]))
             
 
-            log.info('gas_heater done, new pwm values '+str(pwm_values))
+            log.info('gas_heater done, noint '+str(noint)+', new pwm values '+str(pwm_values))
         except:
             log.warning('gasheater control PROBLEM')
             traceback.print_exc()
