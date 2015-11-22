@@ -120,7 +120,7 @@ class CustomerApp(object):
         ''' CONTROLS HEATING WATER TEMPERATURE FROM GAS HEATER AND MIX VALVE TO FLOOR '''
         try:
             # self.TGW, self.THW not used so far
-            GSW = (d.get_divalues('GSW')
+            GSW = (d.get_divalues('GSW'))
             noint = -(GSW[0] ^ 1) # inversion. no down integration during non-heating
             if noint != 0:
                 log.info('down int forbidden for gasheater loops based on GSW '+str(GSW)+', noint '+str(noint))
