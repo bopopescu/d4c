@@ -40,11 +40,11 @@ class CustomerApp(object):
         
         self.loop = tornado.ioloop.IOLoop.instance() # for timing here
         
-        self.mbus = MbusWaterMeter(model='cyble_v2', 'WVCV', 'WVAV', avg_win = 3600) # vt mbus_watermeter
+        self.mbus = MbusWaterMeter(self.ca.ac, 'cyble_v2', 'WVCV', 'WVAV', avg_win = 3600) # vt mbus_watermeter
         self.mbus_scheduler = tornado.ioloop.PeriodicCallback(self.mbus_reader, 120000, io_loop = self.loop)
         self.mbus_scheduler.start()
         
-        self.gh = Heater(svc_hmode='GSS', svc_Gtemp='TGW',svc_Htemp='THW', 
+        self.gh = Heater(self.ca.d, self.ca.ac, svc_hmode='GSW', svc_Gtemp='TGW', svc_Htemp='THW', 
             svc_P='KGPW', svc_I='KGIW', svc_D='KGDW', 
             svc_pwm='PWW', svc_Gdebug='LGGW', svc_Hdebug='LGHW', svc_noint='NGIW',
             chn_gas=0, chn_onfloor=1)  # gas heater Junkers Euromaxx
@@ -65,10 +65,11 @@ class CustomerApp(object):
         if appinstance == 'ai_reader': # analogue readings refreshed
             self.gh.output() # gas heater control after every temperatures read
         
-        
-    def mb    
-            
-    
+    def mbus_reader(self):
+        res = self.mbus.read()
+        if res != 0:
+            log.warning('mbus read FAILED')
+   
             
 
 ############################################
@@ -76,7 +77,7 @@ cua = CustomerApp() # test like cua.ca.udp_sender() or cua.ca.app('test') or cua
 cua.ca.spm.start()
 cua.ca.di_reader()
 cua.ca.ai_reader()
-cua.mbus_watermeter()
+cua.mbus_reader()
 log.info('use cua.method() to test methods in this main script or cua.ca.method() in the controller_app')
 time.sleep(2)
 
