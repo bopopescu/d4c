@@ -65,18 +65,18 @@ class CustomerApp(object):
         #mba 3
         self.fls.append({'name':'1k_wc', 'act_svc':['T6W',3], 'set_svc':['T6W',1], 'out_svc':['HV3W',1], 'pwm_svc':['PH3W',1], 'lolim':150, 'hilim':350})
         self.fls.append({'name':'1k_dush', 'act_svc':['T6W',2], 'set_svc':['T6W',1], 'out_svc':['HV3W',2], 'pwm_svc':['PH3W',2], 'lolim':150, 'hilim':350})
-        self.fls.append({'name':'1k_talve1', 'act_svc':['T5W',4], 'set_svc':['T5W',3], 'out_svc':['HV3W',3], 'pwm_svc':['PH3W',3], 'lolim':150, 'hilim':350})
-        self.fls.append({'name':'1k_talve2', 'act_svc':['T5W',5], 'set_svc':['T5W',3], 'out_svc':['HV3W',4], 'pwm_svc':['PH3W',4], 'lolim':150, 'hilim':350})
+        self.fls.append({'name':'1k_talv1', 'act_svc':['T5W',4], 'set_svc':['T5W',3], 'out_svc':['HV3W',3], 'pwm_svc':['PH3W',3], 'lolim':150, 'hilim':350})
+        self.fls.append({'name':'1k_talv2', 'act_svc':['T5W',5], 'set_svc':['T5W',3], 'out_svc':['HV3W',4], 'pwm_svc':['PH3W',4], 'lolim':150, 'hilim':350})
         self.fls.append({'name':'1k_elu1', 'act_svc':['T3W',6], 'set_svc':['T3W',3], 'out_svc':['HV3W',5], 'pwm_svc':['PH3W',5], 'lolim':150, 'hilim':350})
         self.fls.append({'name':'1k_elu2', 'act_svc':['T3W',7], 'set_svc':['T3W',3], 'out_svc':['HV3W',6], 'pwm_svc':['PH3W',6], 'lolim':150, 'hilim':350})
         self.fls.append({'name':'lk_elu3', 'act_svc':['T3W',8], 'set_svc':['T3W',3], 'out_svc':['HV3W',7], 'pwm_svc':['PH3W',7], 'lolim':150, 'hilim':350})
                 
         #mba4 
-        self.fls.append({'name':'floor_dusch2k', 'act_svc':['TEW',4], 'set_svc':['TEW',3], 'out_svc':['HV4W',1], 'pwm_svc':['PH4W',1], 'lolim':150, 'hilim':350})
-        self.fls.append({'name':'floor_M3', 'act_svc':['TDW',4], 'set_svc':['TDW',3], 'out_svc':['HV4W',2], 'pwm_svc':['PH4W',2], 'lolim':150, 'hilim':350}) 
-        self.fls.append({'name':'floor_M2', 'act_svc':['TKW',4], 'set_svc':['TKW',3], 'out_svc':['HV4W',3], 'pwm_svc':['PH4W',3], 'lolim':150, 'hilim':350}) 
-        self.fls.append({'name':'floor_M1', 'act_svc':['TBW',4], 'set_svc':['TBW',3], 'out_svc':['HV4W',4], 'pwm_svc':['PH4W',4], 'lolim':150, 'hilim':350}) 
-        self.fls.append({'name':'floor_gallery', 'act_svc':['TRW',4], 'set_svc':['TRW',3], 'out_svc':['HV4W',5], 'pwm_svc':['PH4W',5], 'lolim':150, 'hilim':350}) 
+        self.fls.append({'name':'2k_dush', 'act_svc':['TEW',4], 'set_svc':['TEW',3], 'out_svc':['HV4W',1], 'pwm_svc':['PH4W',1], 'lolim':150, 'hilim':350})
+        self.fls.append({'name':'2k_M3', 'act_svc':['TDW',4], 'set_svc':['TDW',3], 'out_svc':['HV4W',2], 'pwm_svc':['PH4W',2], 'lolim':150, 'hilim':350}) 
+        self.fls.append({'name':'2k_M2', 'act_svc':['TKW',4], 'set_svc':['TKW',3], 'out_svc':['HV4W',3], 'pwm_svc':['PH4W',3], 'lolim':150, 'hilim':350}) 
+        self.fls.append({'name':'2k_M1', 'act_svc':['TBW',4], 'set_svc':['TBW',3], 'out_svc':['HV4W',4], 'pwm_svc':['PH4W',4], 'lolim':150, 'hilim':350}) 
+        self.fls.append({'name':'2k_rodu', 'act_svc':['TRW',4], 'set_svc':['TRW',3], 'out_svc':['HV4W',5], 'pwm_svc':['PH4W',5], 'lolim':150, 'hilim':350}) 
         
         #mba 5
         self.fls.append({'name':'2k_garde', 'act_svc':['TAW',4], 'set_svc':['TAW',3], 'out_svc':['HV5W',1], 'pwm_svc':['PH5W',1], 'lolim':150, 'hilim':350}) 
@@ -121,6 +121,7 @@ class CustomerApp(object):
             pwmouts = []
             setpoints = []
             actuals = []
+            names= []
             for i in range(len(self.fls)): # floor loops 
                 #sys.stdout.write('floor loop '+str(i)+':'+self.fls[i]['name']+', ')
                 loopout = self.floop[i].output()  # find the needed floor valve state
@@ -135,13 +136,16 @@ class CustomerApp(object):
                     cua.ca.ac.set_aivalue(self.fls[i]['pwm_svc'][0], self.fls[i]['pwm_svc'][1], pwm) ### ac.set_aivalue(svc, member, volume) ###
                     actuals.append(act) ##
                     setpoints.append(set) ##
+                    names.append(self.fls[i]['name'])
                 else:
                     log.warning('INVALID do bit value '+str(bit)+' for '+str(self.fls[i]['out_svc']))
                 # the previous cannot be combined into words, may be spread over extensions
             #sys.stdout.flush()
-            log.info('floor loop pwm_levels %s, valve_states %s' % (str(pwmouts), str(bitouts)))
+            log.info('floor loop names %s' % str(names)) ##
             log.info('floor loop setpoints %s' % str(setpoints)) ##
-            log.info('floor loop actuals %s' % str(actuals)) ##
+            log.info('floor loop actuals   %s' % str(actuals)) ##
+            log.info('floor loop pwm_levels %s' % str(pwmouts))
+            log.info('floor loop  valve_states %s' %  str(bitouts))
             
     def watermeter_reader(self):
         res = self.watermeter.read()
