@@ -166,6 +166,7 @@ class CustomerApp(object):
                     bitouts.append(bit)
                     pwmouts.append(pwm)
                     cua.ca.ac.set_aivalue(self.fls[i]['pwm_svc'][0], self.fls[i]['pwm_svc'][1], pwm) ### ac.set_aivalue(svc, member, volume) ###
+                    log.info('floor loop out to '+str(self.fls[i]['out_svc'][0], self.fls[i]['out_svc'][1], loopout))
                     actuals.append(act) ##
                     setpoints.append(set) ##
                     names.append(self.fls[i]['name'].split('_')[1][0:4]) # et oleks veidi lyhem nimi
@@ -192,7 +193,8 @@ class CustomerApp(object):
                 set = self.aloop[i].pid.getvars(filter='setpoint') 
                 
                 try:
-                    cua.ca.ac.set_aivalue(self.fls[i]['out_svc'][0], self.fls[i]['out_svc'][1], loopout) # svc, member, value
+                    cua.ca.ac.set_aivalue(self.als[i]['out_svc'][0], self.als[i]['out_svc'][1], loopout) # svc, member, value
+                    log.info('air loop out to '+str(self.als[i]['out_svc'][0], self.als[i]['out_svc'][1], loopout))
                     actuals.append(act) ##
                     setpoints.append(set) ##
                     outputs.append(loopout) ##
