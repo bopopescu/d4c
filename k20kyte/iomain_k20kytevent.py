@@ -159,6 +159,7 @@ class CustomerApp(object):
                 set = self.floop[i].pid.getvars(filter='setpoint') 
                 bit = loopout[0]
                 pwm = int(10.0 * loopout[1])
+                out = int(round(loopout[0],0))
                 #phasedel = int(self.floop[i].getvars(filter='phasedelay'))
                 
                 if bit != None:
@@ -166,7 +167,8 @@ class CustomerApp(object):
                     bitouts.append(bit)
                     pwmouts.append(pwm)
                     cua.ca.ac.set_aivalue(self.fls[i]['pwm_svc'][0], self.fls[i]['pwm_svc'][1], pwm) ### ac.set_aivalue(svc, member, volume) ###
-                    log.info('floor loop out to '+str(self.fls[i]['out_svc'][0], self.fls[i]['out_svc'][1], loopout))
+                    cua.ca.ac.set_aivalue(self.fls[i]['out_svc'][0], self.fls[i]['out_svc'][1], out) ### ac.set_aivalue(svc, member, volume) ###
+                    log.info('floor loop out to '+self.fls[i]['out_svc'][0]+'.'+str(self.fls[i]['out_svc'][1])+' = '+str(out))
                     actuals.append(act) ##
                     setpoints.append(set) ##
                     names.append(self.fls[i]['name'].split('_')[1][0:4]) # et oleks veidi lyhem nimi
@@ -194,13 +196,13 @@ class CustomerApp(object):
                 
                 try:
                     cua.ca.ac.set_aivalue(self.als[i]['out_svc'][0], self.als[i]['out_svc'][1], loopout) # svc, member, value
-                    log.info('air loop out to '+str(self.als[i]['out_svc'][0], self.als[i]['out_svc'][1], loopout))
+                    log.info('air loop out to '+self.als[i]['out_svc'][0]+'.'+str(self.als[i]['out_svc'][1])+' = ' +str(loopout))
                     actuals.append(act) ##
                     setpoints.append(set) ##
                     outputs.append(loopout) ##
                     names.append(self.als[i]['name'].split('_')[1][0:4]) # et oleks veidi lyhem nimi
                 except:
-                    log.warning('FAILED to save air loop '+self.name+' output value to ')
+                    log.warning('FAILED to save air loop '+self.name+' output value to '+str(self.als[i]['name']))
                     
             #sys.stdout.flush()
             log.info('air loop names %s' % str(names).strip(', ')) ##
