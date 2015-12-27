@@ -120,7 +120,7 @@ class CustomerApp(object):
         for i in range(len(self.als)): # class RoomTemperature from heating.py 
             self.aloop.append(RoomTemperature(self.msgbus, 
             act_svc = self.als[i]['act_svc'], set_svc=self.als[i]['set_svc'], out_svc = self.als[i]['out_svc'], 
-            name = self.als[i]['name'], lolim = self.als[i]['lolim'], hilim = self.fls[i]['hilim']))
+            name = self.als[i]['name'], lolim = self.als[i]['lolim'], hilim = self.als[i]['hilim']))
         if len(self.als) == len(self.aloop): # ok
             log.info(str(len(self.aloop))+' air loops created')
         else:
@@ -154,21 +154,18 @@ class CustomerApp(object):
             phasedels = []
             for i in range(len(self.floop)): # floor loops 
                 #sys.stdout.write('floor loop '+str(i)+':'+self.fls[i]['name']+', ')
-                loopout = self.floop[i].output()  # find the needed floor valve state
+                loopout = self.floop[i].output()  ############ find the needed floor valve state
                 act = self.floop[i].pid.getvars(filter='actual') 
                 set = self.floop[i].pid.getvars(filter='setpoint') 
                 bit = loopout[0]
                 pwm = int(10.0 * loopout[1])
-                out = int(round(loopout[0],0))
                 #phasedel = int(self.floop[i].getvars(filter='phasedelay'))
                 
                 if bit != None:
-                    cua.ca.d.setby_dimember_do(self.fls[i]['out_svc'][0], self.fls[i]['out_svc'][1], bit) # svc, member, value
+                    cua.ca.d.setby_dimember_do(self.fls[i]['out_svc'][0], self.fls[i]['out_svc'][1], bit) ## svc, member, value
                     bitouts.append(bit)
                     pwmouts.append(pwm)
                     cua.ca.ac.set_aivalue(self.fls[i]['pwm_svc'][0], self.fls[i]['pwm_svc'][1], pwm) ### ac.set_aivalue(svc, member, volume) ###
-                    cua.ca.ac.set_aivalue(self.fls[i]['out_svc'][0], self.fls[i]['out_svc'][1], out) ### ac.set_aivalue(svc, member, volume) ###
-                    log.info('floor loop out to '+self.fls[i]['out_svc'][0]+'.'+str(self.fls[i]['out_svc'][1])+' = '+str(out))
                     actuals.append(act) ##
                     setpoints.append(set) ##
                     names.append(self.fls[i]['name'].split('_')[1][0:4]) # et oleks veidi lyhem nimi
@@ -184,13 +181,13 @@ class CustomerApp(object):
             log.info('floor loop  valve_states %s' %  str(bitouts))
             
             
-            ### air loops (room temperature)
+            ### air loops (room temperature), the outputs are setpoints to floor loops
             setpoints = []
             actuals = []
             names= []
             outputs = []
             for i in range(len(self.aloop)): # air loops 
-                loopout = int(self.aloop[i].output())  # find the needed floor valve state
+                loopout = int(self.aloop[i].output())  ## find the setpoint for water temp in floor heating
                 act = self.aloop[i].pid.getvars(filter='actual') 
                 set = self.aloop[i].pid.getvars(filter='setpoint') 
                 
