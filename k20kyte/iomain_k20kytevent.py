@@ -245,7 +245,7 @@ class CustomerApp(object):
                 norm = self.als[i]['norm']
                 log.info('using default setpoint of '+str(norm)+' for '+self.als[i]['name']+' due to value '+str(res)+' from gcal')
                 try:
-                    cua.ca.ac.set_aivalue(self.als[i]['set_svc'], self.als[i]['set_svc'][1], norm) # svc, member, value
+                    cua.ca.ac.set_aivalue(self.als[i]['set_svc'][0], self.als[i]['set_svc'][1], norm) # svc, member, value
                 except:
                     log.warning('FAILED to set '+str(self.als[i]['set_svc'][0])+'.'+str(self.als[i]['set_svc'][1]))
                     traceback.print_exc()
