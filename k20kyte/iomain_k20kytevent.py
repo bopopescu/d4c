@@ -16,6 +16,7 @@ from droidcontroller.mbus_watermeter import * #
 #from droidcontroller.mybasen_send import * #
 from droidcontroller.gasheater import JunkersHeater
 from droidcontroller.heating import * # includes RoomTemperature, FloorTemperature
+from droidcontroller.gcal import Gcal # setpoint shifting
 
 import logging
 try:
@@ -23,17 +24,16 @@ try:
     chromalog.basicConfig(level=logging.INFO, format='%(name)-30s: %(asctime)s %(levelname)s %(message)s')
 except ImportError:
     logging.basicConfig(format='%(name)-30s: %(asctime)s %(levelname)s %(message)s') # 30 on laius
-#logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
-#logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+
+logging.getLogger('heating').setLevel(logging.DEBUG) # investigate one thing, not propagated here
 log = logging.getLogger(__name__)
 
-logging.getLogger('heating').setLevel(logging.DEBUG) # investigate one thing, no propagate here
 
-requests_log = logging.getLogger("requests.packages.urllib3") # to see more
-requests_log.setLevel(logging.DEBUG)
-requests_log.propagate = True
 
-ts = time.time()
+#requests_log = logging.getLogger("requests.packages.urllib3") # to see more
+#requests_log.setLevel(logging.DEBUG)
+#requests_log.propagate = True
+
 
 
 class CustomerApp(object):
@@ -50,9 +50,14 @@ class CustomerApp(object):
         self.loop = tornado.ioloop.IOLoop.instance() # for timing here
         
         self.watermeter = MbusWaterMeter(self.msgbus, 'cyble_v2', 'WVCV', 'WVAV', avg_win = 3600) # vt mbus_watermeter
-        self.watermeter_scheduler = tornado.ioloop.PeriodicCallback(self.watermeter_reader, 120000, io_loop = self.loop)
+        self.watermeter_scheduler = tornado.ioloop.PeriodicCallback(self.watermeter_reader, 120000, io_loop = self.loop) # every 2 minutes
         self.watermeter_scheduler.start()
         
+        self.gcal = Gcal('010000000011') # Gcal(self.ca.udp.getID()) 
+        self.gcal_scheduler = tornado.ioloop.PeriodicCallback(self.gcal_sync, 180000, io_loop = self.loop) # every 30 minutes (3 for tst)
+        self.gcal_scheduler.start()
+        self.gcal2tempset_scheduler = tornado.ioloop.PeriodicCallback(self.gcal2tempset, 60000, io_loop = self.loop) # every 3 minutes (1 for test)
+        self.gcal2tempset_scheduler.start()
         
         
         #gasheater instance is older, handles directly ac and d comm. heating is better, only msgbus needed as object.
@@ -108,13 +113,14 @@ class CustomerApp(object):
                 log.warning('the floor loops number '+str(len(self.floop))+' does not match with '+str(len(self.fls))+' configuration lines!')
         
         self.als = []  # air loops config, calculates return water temperature setpoint
-        self.als.append({'name':'2k_garde', 'act_svc':['TAW',2], 'set_svc':['TAW',1], 'out_svc':['TAW',3], 'lolim':150, 'hilim':300}) 
-        self.als.append({'name':'2k_MB', 'act_svc':['T8W',2], 'set_svc':['T8W',1], 'out_svc':['T8W',3], 'lolim':150, 'hilim':300})
-        self.als.append({'name':'2k_M1', 'act_svc':['TBW',2], 'set_svc':['TBW',1], 'out_svc':['TBW',3], 'lolim':150, 'hilim':300})
-        self.als.append({'name':'2k_M2', 'act_svc':['TKW',2], 'set_svc':['TKW',1], 'out_svc':['TKW',3], 'lolim':150, 'hilim':300})
-        self.als.append({'name':'2k_M3', 'act_svc':['TDW',2], 'set_svc':['TDW',1], 'out_svc':['TDW',3], 'lolim':150, 'hilim':300})
-        self.als.append({'name':'1k_elu', 'act_svc':['T3W',2], 'set_svc':['T3W',1], 'out_svc':['T3W',3], 'lolim':150, 'hilim':300})
-        #self.als.append({'name':'1k_kab', 'act_svc':['TAW',4], 'set_svc':['TAW',3], 'out_svc':['HV5W',1], 'lolim':150, 'hilim':300})
+        self.als.append({'name':'2k_garde', 'act_svc':['TAW',2], 'set_svc':['TAW',1], 'out_svc':['TAW',3], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Tgarde'}) 
+        self.als.append({'name':'2k_MB', 'act_svc':['T8W',2], 'set_svc':['T8W',1], 'out_svc':['T8W',3], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Tmb'})
+        self.als.append({'name':'2k_M1', 'act_svc':['TBW',2], 'set_svc':['TBW',1], 'out_svc':['TBW',3], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Tneeme'})
+        self.als.append({'name':'2k_M2', 'act_svc':['TKW',2], 'set_svc':['TKW',1], 'out_svc':['TKW',3], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Tjanar'})
+        self.als.append({'name':'2k_M3', 'act_svc':['TDW',2], 'set_svc':['TDW',1], 'out_svc':['TDW',3], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Tjaana'})
+        self.als.append({'name':'1k_elu', 'act_svc':['T3W',2], 'set_svc':['T3W',1], 'out_svc':['T3W',3], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Telu'})
+        #self.als.append({'name':'1k_kab', 'act_svc':['T7W',4], 'set_svc':['T7W',1], 'out_svc':['T7W',1], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Theli'})
+        #self.als.append({'name':'1k_hall', 'act_svc':['T7W',4], 'set_svc':['T7W',1], 'out_svc':['T7W',1], 'lolim':150, 'hilim':300, 'norm':200, 'set_cal':'Thall'})
         
         self.aloop = [] # air loops 
         for i in range(len(self.als)): # class RoomTemperature from heating.py 
@@ -213,10 +219,31 @@ class CustomerApp(object):
             log.warning('watermeter read FAILED')
         
     def make_water_svc(self, token, subject, message): # self, token, subject, message
-        ''' listens to the water volume, stores into channel / service tables ''' 
+        ''' listens to the water volume in async mode, stores into channel / service tables ''' 
         log.info('from watermeter token %s, subject %s, message %s', token, subject, str(message))
         cua.ca.ac.set_aivalue(subject, 1, message['values'][0]) # ac.set_aivalue(svc, member, volume)
         
+    def gcal_sync(self):
+        res = self.gcal.sync() # cal_id is host_id
+        if res == 0:
+            log.info('calendar synced')
+        else:
+            log.info('calendar sync FAILED!')
+            
+    def gcal2tempset(self):
+        ''' check for calendar events and set the according temperature setpoints as service members '''
+        for i in range(len(self.als)): # calendar control for air loop setpoints
+            res = self.gcal.check(self.als[i]['set_cal'])
+            if res != None: # an event for the current time exists
+                try:
+                    cua.ca.ac.set_aivalue(self.als[i]['set_svc'], self.als[i]['set_svc'][1], int(10 * float(res))) # svc, member, value
+                    log.info('setpoint from calendar '+int(10 * float(res)))
+                except:
+                    log.warning('FAILED to use valendar event '+self.als[i]['cal_set']+' value '+res+' as setpoint for '+self.als[i]['name'])
+            else: # use norm
+                cua.ca.ac.set_aivalue(self.als[i]['set_svc'], self.als[i]['set_svc'][1], self.als[i]['norm']) # svc, member, value
+                log.info('default setpoint of '+str(self.als[i]['norm'])+' for '+self.als[i]['name'])
+                    
 ############################################
 
 cua = CustomerApp() ## test like cua.ca.udp_sender() or cua.ca.app('test') or cua.app('test',1)
