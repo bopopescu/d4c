@@ -241,10 +241,15 @@ class CustomerApp(object):
                 except:
                     log.warning('FAILED to use valendar event '+self.als[i]['set_cal']+' value '+res+' as setpoint for '+self.als[i]['name'])
                     traceback.print_exc()
-            else: # use norm
-                cua.ca.ac.set_aivalue(self.als[i]['set_svc'], self.als[i]['set_svc'][1], self.als[i]['norm']) # svc, member, value
-                log.info('default setpoint of '+str(self.als[i]['norm'])+' for '+self.als[i]['name']+' due to value '+str(res)+' from gcal')
-
+            else: # use default value norm
+                norm = self.als[i]['norm']
+                log.info('using default setpoint of '+str(norm)+' for '+self.als[i]['name']+' due to value '+str(res)+' from gcal')
+                try:
+                    cua.ca.ac.set_aivalue(self.als[i]['set_svc'], self.als[i]['set_svc'][1], norm) # svc, member, value
+                except:
+                    log.warning('FAILED to set '+str(self.als[i]['set_svc'])+'.'+str(self.als[i]['set_svc'][1]))
+                    traceback.print_exc()
+                
 ############################################
 
 cua = CustomerApp() ## test like cua.ca.udp_sender() or cua.ca.app('test') or cua.app('test',1)
