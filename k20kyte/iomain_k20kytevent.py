@@ -236,7 +236,7 @@ class CustomerApp(object):
             res = self.gcal.check(self.als[i]['set_cal'])
             if res != None and res != '': # an event for the current time exists
                 try:
-                    cua.ca.ac.set_aivalue(self.als[i]['set_svc'], self.als[i]['set_svc'][1], int(10 * float(res))) # svc, member, value
+                    cua.ca.ac.set_aivalue(self.als[i]['set_svc'][0], self.als[i]['set_svc'][1], int(10 * float(res))) # svc, member, value
                     log.info('setpoint from calendar '+int(10 * float(res)))
                 except:
                     log.warning('FAILED to use valendar event '+self.als[i]['set_cal']+' value '+res+' as setpoint for '+self.als[i]['name'])
@@ -247,7 +247,7 @@ class CustomerApp(object):
                 try:
                     cua.ca.ac.set_aivalue(self.als[i]['set_svc'], self.als[i]['set_svc'][1], norm) # svc, member, value
                 except:
-                    log.warning('FAILED to set '+str(self.als[i]['set_svc'])+'.'+str(self.als[i]['set_svc'][1]))
+                    log.warning('FAILED to set '+str(self.als[i]['set_svc'][0])+'.'+str(self.als[i]['set_svc'][1]))
                     traceback.print_exc()
                 
 ############################################
