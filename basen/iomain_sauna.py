@@ -209,7 +209,7 @@ class CustomerApp(object):
                     if aivalue != None:
                         shvalue = int(round(aivalue / 10.0, 0))
                         if shvalue < 0:
-                            shvalue = 65536 - shvalue
+                            shvalue = 65536 + shvalue
                     else:
                         shvalue = 9999 # sensor disconnected
                 else: # 4..6 here. 7,8 gpr, 9..12 lights
