@@ -1,6 +1,11 @@
-''' highest level script for koogu20 heating & ventilation '''
-APVER='ioloop app valgusvalve 5.1.2016' # kasutab uut controller_app versiooni. kasuta cua.ca.d jne
+''' highest level script for koogu20 heating & ventilation 
 
+    lamp control testing:
+    >>> cua.lamp[1].inproc('DI1W', [1,0,0,0, 0,0,0,0]); cua.ca.d.doall(); cua.ca.d.get_divalues('DO1W'); cua.lamp[1].out
+'''
+
+APVER='ioloop app valgusvalve 5.1.2016' # kasutab uut controller_app versiooni. kasuta cua.ca.d jne
+## punane rs485 paar yle maja, sin paar rs485 valgusvalve. pruun paar koos +12, sin paar koos 0V akutoitelt.
 import os, sys, time, traceback
 
 #sys.path.append('/data/mybasen/python') # basen tools
@@ -11,6 +16,7 @@ from droidcontroller.uniscada import * # UDPchannel, TCPchannel
 from droidcontroller.controller_app import *
 #from droidcontroller.statekeeper import *
 from droidcontroller.lamp import Lamp
+from droidcontroller.util_n import UN # comparator here
 
 #from droidcontroller.read_gps import * #
 #from droidcontroller.mbus_watermeter import * #
@@ -24,9 +30,12 @@ try:
     import chromalog # colored
     chromalog.basicConfig(level=logging.INFO, format='%(name)-30s: %(asctime)s %(levelname)s %(message)s')
 except ImportError:
-    logging.basicConfig(format='%(name)-30s: %(asctime)s %(levelname)s %(message)s') # 30 on laius
-
-logging.getLogger('heating').setLevel(logging.DEBUG) # investigate one thing, not propagated here
+    print('warning - chromalog and colorama probably not installed...')
+    time.sleep(2)
+    ##logging.basicConfig(format='%(name)-30s: %(asctime)s %(levelname)s %(message)s') # FIXME ei funka!
+    logging.basicConfig(stream=sys.stderr, level=logging.INFO) # selles ei ole aega ega formaatimist
+    
+#logging.getLogger('dchannels').setLevel(logging.DEBUG) # investigate one thing, not propagated here
 log = logging.getLogger(__name__)
 
 
@@ -40,7 +49,8 @@ class CustomerApp(object):
 
         self.ca = ControllerApp(self.app) # universal, contains ai_reader, di_reader
         self.msgbus = self.ca.msgbus # owner voimaldab unsubscribe tervele portsule korraga
-        #self.msgbus.subscribe('water', 'WVCV', 'water', self.make_water_svc) # publish: val_reg, {'values': values, 'status': status}
+        self.msgbus.subscribe('ai2di1', 'AI1W', 'valve', self.ai2di) # publish: val_reg, {'values': values, 'status': status}
+        #self.msgbus.subscribe('ai2di2', 'AI2W', 'valve', self.ai2di) # publish: val_reg, {'values': values, 'status': status}
         self.ts = time.time()
 
         self.loop = tornado.ioloop.IOLoop.instance() # for timing here
@@ -59,15 +69,16 @@ class CustomerApp(object):
                                                        9 followhi, 10 followlo, 11 followboth
         '''
         self.lamp = [] # lomi, hilim are the pwm pulse length range in seconds (slow pwm)
-        # mba1
-        self.lamp.append(Lamp(in_svc={'DI1W':[(1,3)]}, out_svc=['DO1W',1], name = 'valisvalgus', timeout = 60, out = 0))
+        # kilp 1, mba1, 2
+        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(1,3)]}, out_svc=['DO1W',1], name='valisvalgus', timeout=60))
+        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(8,3)], 'DA1W':[(1,7)]}, out_svc=['DO1W',8], name = 'kytter_valgus', timeout=60))
+        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DA1W':[(2,7)]}, out_svc=['DO2W',5], name='esikuLEDpaneel', timeout=60))
         
-        self.lamp.append(Lamp(in_svc={'DI1W':[(8,3)], 'DA1W':[(1,7)]}, out_svc=['DO1W',8], name = 'kytteruumi_valgus', timeout = None, out = 0))
+        #kilp4, mba 41, 42
+        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI41W':[(4,3)]}, out_svc=['DO41W',4], name='2k_kor_lagi'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DA1W':[(2,7)]}, out_svc=['DO2W',5], name='esikuLEDpaneel', timeout=60))
         
-        self.lamp.append(Lamp(in_svc={'DA1W':[(2,7)]}, out_svc=['DO2W',5], name = 'esikuLEDpaneel', timeout = 60, out = 0))
-        
-        
-        log.info(str(len(self.lamp)) +' lamp instances configured')
+        log.info(str(len(self.lamp)) +' lamp instances listening to msgbus configured')
         
         
 
@@ -80,14 +91,10 @@ class CustomerApp(object):
         '''
         self.ts = time.time()
         res= 0
-        log.info('>> executing app() due to '+appinstance+' attentioncode '+str(attentioncode))
+        log.debug('>> executing app() due to '+appinstance+' attentioncode '+str(attentioncode))
         ##print('msgbus subscriptions: ', str(self.msgbus)) ##
-
-        #if appinstance == 'ai_reader': # analogue readings refreshed
-        #    pass
-            
-            
-            
+        # kaib siit labi iga ai jarel aga midagi ei tee!
+        
             
     def gcal_sync(self): # use async() instead
         res = self.gcal.sync() # cal_id is host_id
@@ -100,6 +107,20 @@ class CustomerApp(object):
     #    res = self.gcal.async() # cal_id is host_id
     #    if res != None:
     #       log.info('gcal (a)synced, res '+str(res))
+    
+    def ai2di(self, token, subject, message): # self, token, subject, message, kuulab msgbus AI1W sonumeid
+        ''' listens to the svc AI1W, ai value to binary 0 or 1, into virtual di svc of the same port '''
+        log.debug('from msgbus token %s, subject %s, message %s', token, subject, str(message))
+        values = message['values']
+        for i in range(4): # mba1 pir sisendid
+            binvalue = UN.comparator(values[i], 3440) # raw 3590 mV on movement, 3300 without
+            self.ca.d.set_divalue('DA1W', i+1, binvalue) # d teeb ka publish (?) / tee allpool, kui ei tee
+            if binvalue > 0:
+                log.info(' == movement signal on PIR chan '+str(i)+', mba1 adi '+str(i+1))
+                #cua.ca.d.set_divalue('DA1W', i+1, binvalue) # d teeb ka publish (?) / tee allpool, kui ei tee
+                
+        
+        
         
                 
 ############################################
