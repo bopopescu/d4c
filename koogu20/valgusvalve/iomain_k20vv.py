@@ -24,6 +24,7 @@ from droidcontroller.util_n import UN # comparator here
 #from droidcontroller.gasheater import JunkersHeater
 #from droidcontroller.heating import * # includes RoomTemperature, FloorTemperature
 from droidcontroller.gcal import Gcal # setpoint shifting
+from droidcontroller.diff2pwm import Diff2Pwm  # koogi kummi vent sujuv juhtimine, KAS lisada astmeline?
 
 import logging
 try:
@@ -35,7 +36,9 @@ except ImportError:
     ##logging.basicConfig(format='%(name)-30s: %(asctime)s %(levelname)s %(message)s') # FIXME ei funka!
     logging.basicConfig(stream=sys.stderr, level=logging.INFO) # selles ei ole aega ega formaatimist
     
-#logging.getLogger('dchannels').setLevel(logging.DEBUG) # investigate one thing, not propagated here
+#logging.basicConfig(stream=sys.stderr, level=logging.INFO) # selles ei ole aega ega formaatimist
+#logging.getLogger('dchannels').setLevel(logging.DEBUG) # investigate
+#logging.getLogger('lamp').setLevel(logging.DEBUG) #
 log = logging.getLogger(__name__)
 
 
@@ -47,15 +50,28 @@ class CustomerApp(object):
             we need to control gas heating, floor valves, ventilation, blinds here
         '''
 
-        self.ca = ControllerApp(self.app) # universal, contains ai_reader, di_reader
+        self.ca = ControllerApp(self.app, mb) # universal, contains ai_reader, di_reader
         self.msgbus = self.ca.msgbus # owner voimaldab unsubscribe tervele portsule korraga
-        self.msgbus.subscribe('ai2di1', 'AI1W', 'valve', self.ai2di) # publish: val_reg, {'values': values, 'status': status}
-        #self.msgbus.subscribe('ai2di2', 'AI2W', 'valve', self.ai2di) # publish: val_reg, {'values': values, 'status': status}
+        self.mb = mb # modbus comm channels list
+        self.vent = Diff2Pwm(self.mb, name='kumm_vent', out_ch=[0,1,109], min=0, max=999, period=1000) 
+        self.diffmembers = [1, 3] # koogu vent juhtimine yritab vordsustada TKW esimest ja kolmandat liiget
+        
+        #subscriptions after instances
+        # publish: val_reg, {'values': values, 'status': status}
+        self.msgbus.subscribe('T3KW_vent', 'T3KW', 'svc4action', self.vent_react) # publish: val_reg, {'values': values, 'status': status}
+    
+        self.msgbus.subscribe('adi2', 'AI1W', 'valve', self.ai2di) # valvesignaalid kytteruumist
+        self.msgbus.subscribe('adi21', 'AI21W', 'valve', self.ai2di) # valvesignaaalid 2k pesuruum
+        self.msgbus.subscribe('adi31', 'AI31W', 'valve', self.ai2di) # valvesignaalid elutuba
+        self.msgbus.subscribe('adi41', 'AI41W', 'valve', self.ai2di) # valvesignaalid 2k koridor
+        self.msgbus.subscribe('adi42', 'AI42W', 'valve', self.ai2di) # valvesignaalid 2k koridor
+        
         self.ts = time.time()
-
         self.loop = tornado.ioloop.IOLoop.instance() # for timing here
-
-        self.gcal = Gcal('010000000012') # Gcal(self.ca.udp.getID())
+        
+        
+        #self.calcfg = [{'name':'UpTime', 'set_svc':['T8W',1], 'cal_svc':'T8SW', 'cal_title':'UP', 'rel_svc': ['TAW',1]}] # 
+        #self.cgcal = Gcal('010000000012', ac = ca.ac, cfg = self.calcfg) # Gcal(self.ca.udp.getID())
         #self.gcal_scheduler = tornado.ioloop.PeriodicCallback(self.gcal.read_async, 300000, io_loop = self.loop) # every 30 minutes (3 for tst) # FIXME
         #self.gcal_scheduler.start()
         
@@ -70,13 +86,21 @@ class CustomerApp(object):
         '''
         self.lamp = [] # lomi, hilim are the pwm pulse length range in seconds (slow pwm)
         # kilp 1, mba1, 2
-        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(1,3)]}, out_svc=['DO1W',1], name='valisvalgus', timeout=60))
-        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(8,3)], 'DA1W':[(1,7)]}, out_svc=['DO1W',8], name = 'kytter_valgus', timeout=60))
-        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DA1W':[(2,7)]}, out_svc=['DO2W',5], name='esikuLEDpaneel', timeout=60))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(1,3)]}, out_svc=['DO1W',1],name='valisvalgus'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(4,3)]}, out_svc=['DO1W',4],name='heli_lagi'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(7,3)]}, out_svc=['DO1W',7],name='kuur_lagi'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI1W':[(8,3)],'DA1W':[(1,8)]},out_svc=['DO1W',8],name='kytter_valgus',timeout=60))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DA1W':[(2,7)]},out_svc=['DO2W',5],name='esikuLEDpaneel',timeout=60))
         
         #kilp4, mba 41, 42
-        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI41W':[(4,3)]}, out_svc=['DO41W',4], name='2k_kor_lagi'))
-        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DA1W':[(2,7)]}, out_svc=['DO2W',5], name='esikuLEDpaneel', timeout=60))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI41W':[(1,3)]},out_svc=['DO41W',1],name='2k_M2'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI41W':[(2,3)]},out_svc=['DO41W',2],name='2k_M3'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI41W':[(3,11)]},out_svc=['DO41W',3],name='2k_M1')) # jargiv
+        self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI41W':[(4,3)]},out_svc=['DO41W',4],name='2k_kor_lagi'))
+        
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI42W':[(2,3)]},out_svc=['DO42W',2],name='2k_dush'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI42W':[(3,3)]},out_svc=['DO42W',3],name='2k_wc'))
+        #self.lamp.append(Lamp(self.ca.d,msgbus=self.msgbus,in_svc={'DI42W':[(4,3)]},out_svc=['DO42W',4],name='rodu_prose'))
         
         log.info(str(len(self.lamp)) +' lamp instances listening to msgbus configured')
         
@@ -91,10 +115,9 @@ class CustomerApp(object):
         '''
         self.ts = time.time()
         res= 0
-        log.debug('>> executing app() due to '+appinstance+' attentioncode '+str(attentioncode))
-        ##print('msgbus subscriptions: ', str(self.msgbus)) ##
-        # kaib siit labi iga ai jarel aga midagi ei tee!
-        
+        if appinstance == 'di_reader' and attentioncode > 0:
+            log.info('>> executing app() due to '+appinstance+' attentioncode '+str(attentioncode))
+            
             
     def gcal_sync(self): # use async() instead
         res = self.gcal.sync() # cal_id is host_id
@@ -110,19 +133,31 @@ class CustomerApp(object):
     
     def ai2di(self, token, subject, message): # self, token, subject, message, kuulab msgbus AI1W sonumeid
         ''' listens to the svc AI1W, ai value to binary 0 or 1, into virtual di svc of the same port '''
-        log.debug('from msgbus token %s, subject %s, message %s', token, subject, str(message))
+        log.info('ai2di got from msgbus token %s, subject %s, message %s', token, subject, str(message))
         values = message['values']
+        print('ai2di got from msgbus... values '+str(values))
         for i in range(4): # mba1 pir sisendid
             binvalue = UN.comparator(values[i], 3440) # raw 3590 mV on movement, 3300 without
             self.ca.d.set_divalue('DA1W', i+1, binvalue) # d teeb ka publish (?) / tee allpool, kui ei tee
             if binvalue > 0:
-                log.info(' == movement signal on PIR chan '+str(i)+', mba1 adi '+str(i+1))
+                log.info(' === movement signal on PIR chan '+str(i)+', mba1 adi '+str(i+1))
                 #cua.ca.d.set_divalue('DA1W', i+1, binvalue) # d teeb ka publish (?) / tee allpool, kui ei tee
                 
         
+    def debugger(self, token, subject, message): # self, token, subject, message, kuulab subscr sonumeid
+        ''' listens to the ssubscribed messages '''
+        log.info('main.debugger: from msgbus token %s, subject %s, message %s', token, subject, str(message))
         
+    def vent_react(self, token, subject, message): # 
+        '''ventilation control in kitchen based on temperature difference '''
+        log.info('vent_react got from msgbus token %s, subject %s, message %s', token, subject, str(message))
+        print('vent_react got from msgbus token %s, subject %s, message %s', token, subject, str(message))
+        values = message['values']
+        invalues = [values[self.diffmembers[0] - 1], values[self.diffmembers[1] - 1]]
+        pwm = self.vent.react(invalues)
+        self.ca.ac.set_airaw('V3W', 1, pwm) # service to monitor, recalculate to 0.500 to 0..1000 (%)
         
-                
+    
 ############################################
 
 cua = CustomerApp() ## test like cua.ca.udp_sender() or cua.ca.app('test') or cua.app('test',1)
