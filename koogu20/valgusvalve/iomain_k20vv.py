@@ -53,8 +53,8 @@ class CustomerApp(object):
         self.ca = ControllerApp(self.app, mb) # universal, contains ai_reader, di_reader
         self.msgbus = self.ca.msgbus # owner voimaldab unsubscribe tervele portsule korraga
         self.mb = mb # modbus comm channels list
-        self.vent = Diff2Pwm(self.mb, name='kumm_vent', out_ch=[0,1,109], min=0, max=999, period=1000) 
-        self.diffmembers = [1, 3] # koogu vent juhtimine yritab vordsustada TKW esimest ja kolmandat liiget
+        self.vent = Diff2Pwm(self.mb, name='kumm_vent', out_ch=[0,32,109], outMin=0, outMax=499, period=500, P=10, I=0.1, D=10, upspeed=10, dnspeed=-8) # contains pid
+        #upspeed, dnspeed compared with Cd, derivative pid component
         
         #subscriptions after instances
         # publish: val_reg, {'values': values, 'status': status}
@@ -135,7 +135,6 @@ class CustomerApp(object):
         ''' listens to the svc AI1W, ai value to binary 0 or 1, into virtual di svc of the same port '''
         log.info('ai2di got from msgbus token %s, subject %s, message %s', token, subject, str(message))
         values = message['values']
-        print('ai2di got from msgbus... values '+str(values))
         for i in range(4): # mba1 pir sisendid
             binvalue = UN.comparator(values[i], 3440) # raw 3590 mV on movement, 3300 without
             self.ca.d.set_divalue('DA1W', i+1, binvalue) # d teeb ka publish (?) / tee allpool, kui ei tee
@@ -151,11 +150,19 @@ class CustomerApp(object):
     def vent_react(self, token, subject, message): # 
         '''ventilation control in kitchen based on temperature difference '''
         log.info('vent_react got from msgbus token %s, subject %s, message %s', token, subject, str(message))
-        print('vent_react got from msgbus token %s, subject %s, message %s', token, subject, str(message))
         values = message['values']
-        invalues = [values[self.diffmembers[0] - 1], values[self.diffmembers[1] - 1]]
-        pwm = self.vent.react(invalues)
-        self.ca.ac.set_airaw('V3W', 1, pwm) # service to monitor, recalculate to 0.500 to 0..1000 (%)
+        invalues = [values[0], values[2]] # pliit, tuba, vordlus 
+        if values[0] > ((values[1] + values[2]) / 2):
+            outMin = 150
+        elif values[0] > ((values[1] + values[2]) / 3):
+            outMin = 100
+        else:
+            outMin = 0
+        vent_res = self.vent.react(invalues, outMin=outMin)
+        vent_pwm = vent_res[0]
+        vent_state = vent_res[2]
+        log.info('vent_react vent_res '+str(vent_res)+', invalues '+str(invalues))
+        self.ca.ac.set_airaw('V3W', 1, vent_pwm) # service to monitor, recalculate to 0.500 to 0..1000 (%)
         
     
 ############################################

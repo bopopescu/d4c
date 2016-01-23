@@ -94,11 +94,11 @@ INSERT INTO "aicochannels" VALUES('42','414','P4W','1','448','0','100','0','100'
 INSERT INTO "aicochannels" VALUES('','','P4W','2','','0','100','0','100','','','','','','3000','','','sp Wh kilp 4','s!',3,0,2,'',''); -- max voimsus
 
 -- temp andurid mba 31 ['28583809070000C2', '281B45090700006F', '28B7FE410100005C']
-INSERT INTO "aicochannels" VALUES('32','600','T3KW','1','6400','0','80','0','50','50','300','3','','','','','','kummi all','h',3,0,1,'',''); -- kubu all
-INSERT INTO "aicochannels" VALUES('32','601','T3KW','2','6400','0','80','0','50','50','300','3','','','','','','kapi peal','h',3,0,1,'',''); -- kapi peal
-INSERT INTO "aicochannels" VALUES('32','601','T3KW','3','0','0','80','30','80','80','330','1','','','','','','nihkes','h',3,0,1,'',''); -- kapi peal nihkes yles 3 deg
+INSERT INTO "aicochannels" VALUES('32','600','T3KW','1','6400','0','80','0','50','50','400','3','','','','','','kummi all','h',3,0,1,'',''); -- kubu all
+INSERT INTO "aicochannels" VALUES('32','601','T3KW','2','6400','0','160','0','100','100','330','3','','','','','','kapi peal','h',3,0,1,'',''); -- kapi peal
+INSERT INTO "aicochannels" VALUES('32','601','T3KW','3','0','0','160','170','270','80','430','1','','','','','','nihkes','h',3,0,1,'',''); -- kapi peal nihkes yles 5 deg
 
-INSERT INTO "aicochannels" VALUES('','','V3W','1','20','0','50','0','100','0','100','1','','','0','','','pliit vent pwm act','r',3,0,1,'',''); -- pwm 0..1000
+INSERT INTO "aicochannels" VALUES('','','V3W','1','20','0','50','0','100','0','500','1','','','0','','','pliit vent pwm act','r',3,0,1,'',''); -- pwm 0..1000
 INSERT INTO "aicochannels" VALUES('','','V3W','2','20','0','50','0','100','0','1000','1','','','100','','','pliit vent pwm hi','s!',3,0,1,'',''); -- warn kui sees
 
 INSERT INTO "aicochannels" VALUES('32','602','T3HW','1','6400','0','80','0','50','50','300','3','','','','','','kamina kohal','h',3,0,1,'',''); -- kamin lae all
