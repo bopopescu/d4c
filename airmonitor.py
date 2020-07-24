@@ -11,7 +11,7 @@ APVER='channelmonitor_pm.py srik 18.01.2014'  # linux and python3 -compatible. #
 
 # 23.06.2013 based on channelmonitor3.py
 # 25.06.2013 added push cmd, any (mostly sql or log) file from d4c directory to be sent into pyapp/mac on itvilla.ee, this SHOULD BE controlled by setup.sql - NOT YET!
-# 28.06.2013 checking modbusproxy before slave registers and tcperr increase. stop and recreate db if proxy running but slave inaccessible.
+# 28.06.2013 checking modbusproxy before subordinate registers and tcperr increase. stop and recreate db if proxy running but subordinate inaccessible.
 # 02.07.2013 first check reg 255:0 1
 # 08.07.2013 added some register reads from modbusproxy, incl uuid and simserial. no battery data reading yet. chk proxy version first?
 # 09.07.2013 syslog broadcast
@@ -327,7 +327,7 @@ def read_hexstring(mba,regaddr,regcount): # read from modbus register as hex str
 
 
 
-def channelconfig(): # register settings read, write to slaves if needed, report to mon server
+def channelconfig(): # register settings read, write to subordinates if needed, report to mon server
     # on android assuming the proxy connection is ok, tested before (ProxyState == 0)
     global tcperr,inumm,ts,sendstring #,MBsta # not yet used, add handling
     mba=0
@@ -371,7 +371,7 @@ def channelconfig(): # register settings read, write to slaves if needed, report
                             print(msg)
                             syslog(msg)
                         
-                        result = client.read_holding_registers(address=regadd, count=1, unit=mba) # actual value currently in slave modbus register
+                        result = client.read_holding_registers(address=regadd, count=1, unit=mba) # actual value currently in subordinate modbus register
                         tcpdata = result.registers[0]
                         if register[0] == 'W': # writable
                             if tcpdata == value: # the actual value verified
@@ -717,7 +717,7 @@ def read_aichannels(): # analogue inputs via modbusTCP, to be executed regularly
                     #if respcode == 0: # got  tcpdata as register content. convert to scale.
                     try:
                         result = client.read_holding_registers(address=regadd, count=1, unit=mba)
-                        tcpdata = result.registers[0] # reading modbus slave
+                        tcpdata = result.registers[0] # reading modbus subordinate
                         msg=msg+' raw '+str(tcpdata)
                         if mba<5:
                             MBerr[mba]=0
@@ -999,8 +999,8 @@ def read_dichannel_bits(mba): # binary inputs, bit changes to be found and value
         Cmd3="BEGIN IMMEDIATE TRANSACTION" # conn3
         conn3.execute(Cmd3) #
 
-        #Cmd3="select mba,regadd from dichannels group by mba,regadd" # finding di registers to read. usually 1 reg per mb slave.
-        Cmd3="select regadd from dichannels where mba='"+str(mba)+"'"  # for one slave only
+        #Cmd3="select mba,regadd from dichannels group by mba,regadd" # finding di registers to read. usually 1 reg per mb subordinate.
+        Cmd3="select regadd from dichannels where mba='"+str(mba)+"'"  # for one subordinate only
         cursor3.execute(Cmd3)
 
         for row in cursor3: # for each mba and regadd (DI register)
@@ -1023,7 +1023,7 @@ def read_dichannel_bits(mba): # binary inputs, bit changes to be found and value
             svc_name='' # unused?
             #print('reading dichannel register mba,regadd',mba,regadd) # temporary debug
             try: # if respcode == 0: # successful DI register reading - continuous to catch changes! ################################
-                result = client.read_holding_registers(address=regadd, count=1, unit=mba) # respcode=read_register(mba,regadd,1) # 1 register at the time, from mb slave
+                result = client.read_holding_registers(address=regadd, count=1, unit=mba) # respcode=read_register(mba,regadd,1) # 1 register at the time, from mb subordinate
                 tcpdata = result.registers[0]  # saab ka bitivaartusi lugeda!
                 if mba<5:
                     MBerr[mba]=0
@@ -2492,7 +2492,7 @@ OSTYPE='' # linux or not?
 ProxyState=1 # modbusproxy connected if 0, not if 1 or more
 MBsta=[0,0,0,0] # modbus device states (ability to communicate). 1 = crc error, 2=device error, 3=usb error, 4 proxy conn error
 MBoldsta=[1,0,0,0] # previous value, begin with no usb conn
-MBerr=[0,0,0,0] # counts the consequtive errors for modbus units (slaves)
+MBerr=[0,0,0,0] # counts the consequtive errors for modbus units (subordinates)
 TCW=[0,0,0,0] # array of communication volumes (UDPin, UDPout, TCPin, TCPout), data in bytes. can be restored from server
 
 lockaddr=('127.0.0.1',44444) # only one instance can bind to it, used for locking!
@@ -2553,7 +2553,7 @@ odiword=-1 # previous di word, on startup do not use
 joru1=''
 joru2=''
 fore=''
-mbcommresult=0 # modbus slave operation result
+mbcommresult=0 # modbus subordinate operation result
 err_aichannels=0 # error counters to sqlread or even stop and dbREcreate
 err_dichannels=0
 err_counters=0
@@ -2578,7 +2578,7 @@ BattPlugged=0
 BattHealth=0
 BattCharge=0
 ts_USBrun=0 # timestamp to start running usb
-W272_dict={} # power-on values for modbus slaves. mba:regvalue
+W272_dict={} # power-on values for modbus subordinates. mba:regvalue
 gsmbreak=0 # 1 if powerbreak ongoing, do bit 15
 
 #from pymodbus.client.sync import ModbusTcpClient as ModbusClient
@@ -2809,14 +2809,14 @@ if stop == 0: # lock ok
     
     SUPPORTHOST='www.itvilla.ee/support/pyapp/'+mac # could be in setup.sql, but safer this way
 
-    # start modbus coomunication and chk/chg slave configuration ###
+    # start modbus coomunication and chk/chg subordinate configuration ###
     try:
         client.read_holding_registers(address=regadd, count=2, unit=mba) # likely to fail, if first in 30s
     except:
         pass
         
     while channelconfig() > 0 and cfgnum<5: # do the setup but not for more than 5 times
-        msg='attempt no '+str(cfgnum+1)+' of 5 to configure modbus slave devices'
+        msg='attempt no '+str(cfgnum+1)+' of 5 to configure modbus subordinate devices'
         print(msg)
         syslog(msg)
         cfgnum=cfgnum+1
@@ -3380,12 +3380,12 @@ while stop == 0: # ################  MAIN LOOP BEGIN  ##########################
     time.sleep(0.05) # try to avoid first false di reading after ai readings
     #mbcommresult=read_dichannel_bits() # should be done by addresses, not all of the addresses are up perhaps...
     ProxyState=read_dichannel_bits(255) # 0 if reading was possible, proxy sw running and responsive
-    #if ProxyState == 0: # no idea in reading slaves behind the proxy if proxy is down
+    #if ProxyState == 0: # no idea in reading subordinates behind the proxy if proxy is down
     #if USBstate == 1: # 23.11.2013 USB must be in running state before attempting to read registers from mba 1
     if OSTYPE == 'android' and USBstate != 1: # android but usb down
         pass
     else: # in all other cases go ahead reading di channels
-        mbcommresult=read_dichannel_bits(1) # tegelikult vaja intelligentsemalt teha. esialgu vaid 1 ja 255 slave aadressid.
+        mbcommresult=read_dichannel_bits(1) # tegelikult vaja intelligentsemalt teha. esialgu vaid 1 ja 255 subordinate aadressid.
         if mbcommresult == 0: # ok, else incr err_dichannels
             msg='dichannels read success'
             err_dichannels=0
